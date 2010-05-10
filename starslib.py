@@ -16,17 +16,15 @@ prime = (3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
 
 def prng():
     global hi, lo
-    L = lo if lo < (1<<31) else lo-(1<<32) # 32-bit 2's complement
-    lo = (0x7fffffab * int(L / -53668) + 40014 * L) % (1<<32)
+    lo = (0x7fffffab * int(lo / -53668) + 40014 * lo) % (1<<32)
     if lo >= (1<<31): lo += 0x7fffffab - (1<<32)
-    H = hi if hi < (1<<31) else hi-(1<<32)
-    hi = (0x7fffff07 * int(H / -52774) + 40692 * H) % (1<<32)
+    hi = (0x7fffff07 * int(hi / -52774) + 40692 * hi) % (1<<32)
     if hi >= (1<<31): hi += 0x7fffff07 - (1<<32)
     return (lo - hi) % (1<<32)
 
 def prng_init(flag, player, turn, salt, uid):
     global hi, lo
-    i, j = (salt>>5) & (2**5-1), salt & (2**5-1)
+    i, j = (salt>>5) & 0x1f, salt & 0x1f
     if salt < (1<<10):
         i += (1<<5)
     else:
