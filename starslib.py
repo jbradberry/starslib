@@ -14,6 +14,67 @@ prime = (3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
     601, 607, 613, 617, 619, 631, 641, 643, 647, 653, 659, 661, 673,
     677, 683, 691, 701, 709, 719, 727)
 
+class StarsStruct(object):
+    def __init__(self, data):
+        self._data = data
+
+    def __str__(self):
+        return str(struct.unpack("%dB" % len(self._data), self._data))
+
+class BOF(StarsStruct):
+    def __init__(self, data):
+        self._data = data
+        (self.magic,
+         self.uid,
+         self.version,
+         self.turn,
+         ps, f) = struct.unpack("4sI4H", data)
+        self.player = ps & 0x001f
+        self.salt = (ps & 0xffe0)>>5
+        self.ftype = f & 0x00ff
+        self.done = (f & 0x0100)>>8
+        self.inuse = (f & 0x0200)>>9
+        self.multi = (f & 0x0400)>>10
+        self.g_over = (f & 0x0800)>>11
+        self.share = (f & 0x1000)>>12
+        self.other = (f & 0xe000)>>13
+        prng_init(self.share, self.player, self.turn, self.salt, self.uid)
+
+class Field6(StarsStruct):
+    pass
+
+class Field7(StarsStruct):
+    def __init__(self, data):
+        self._data = data
+        assert len(data) % 4 == 0
+        L = len(data)//4
+        tmp = struct.unpack("%dI" % L, data)
+        tmp = [i^prng() for i in tmp]
+        tmp = struct.pack("%dI" % L, *tmp)
+        self.info = struct.unpack("%dB" % 4*L, tmp)
+        self.stars = self.info[10] + self.info[11]*256
+
+    def __str__(self):
+        return str(self.info)
+
+class StarIdXY(StarsStruct):
+    def __init__(self, data):
+        self._data = data
+        tmp = struct.unpack("I", data)[0]
+        self.x = tmp & 0x000003ff
+        self.y = (tmp & 0x003ffc00)>>10
+        self.ind = (tmp & 0xffc00000)>>22
+
+    def __str__(self):
+        return "%3d: %4d, %6d" % (self.ind, self.x, self.y)
+
+class EOF(StarsStruct):
+    pass
+
+fields = {8: BOF,
+          7: Field7,
+          0: EOF}
+
 def prng():
     global hi, lo
     lo = (0x7fffffab * int(lo / -53668) + 40014 * lo) % (1<<32)
@@ -32,46 +93,39 @@ def prng_init(flag, player, turn, salt, uid):
     hi, lo = prime[i], prime[j]
 
     seed = ((player%4)+1) * ((uid%4)+1) * ((turn%4)+1) + flag
-    print hex(seed)
+    #print hex(seed)
     for i in xrange(seed):
-        print hex(lo), hex(hi)
+        #print hex(lo), hex(hi)
         burn = prng()
-    print hex(lo), hex(hi)
+    #print hex(lo), hex(hi)
 
 ind = 0
 def read_struct():
     global ind, data
     hdr = struct.unpack("H", data[ind:ind+2])[0]
     ind += 2
-    stype, size = hdr & 0xfc00, hdr & 0x03ff
-    res = struct.unpack("%dB" % size, data[ind:ind+size])
+    stype, size = (hdr & 0xfc00)>>10, hdr & 0x03ff
+    #res = struct.unpack("%dB" % size, data[ind:ind+size])
+    res = fields.get(stype, StarsStruct)(data[ind:ind+size])
     ind += size
     return res
 
 def read_field(size):
     global ind, data
+    tmp = data[ind:ind+size]
     ind += size
-    return
+    return tmp
 
-with open(sys.argv[1], 'rb') as f:
-    data = f.read()
+if __name__ == '__main__':
+    with open(sys.argv[1], 'rb') as f:
+        data = f.read()
 
-bof = read_struct()
-flag = (bof[15] & 0x10)>>4
-turn = bof[10] + (1<<8)*bof[11]
-salt = bof[12] + (1<<8)*bof[13]
-player, salt = salt & 0x001f, (salt % 0xffe0)>>5
-uid = bof[4] + (1<<8)*bof[5] + (1<<16)*bof[6] + (1<<24)*bof[7]
-print flag, player, turn, salt, uid
-prng_init(flag, player, turn, salt, uid)
-mystery = read_struct()
-
-m2 = []
-for i in xrange(len(mystery)//4):
-    rnd = prng()
-    tmp = mystery[4*i:4*(i+1)]
-    tmp = tmp[0] + (1<<8)*tmp[1] + (1<<16)*tmp[2] + (1<<24)*tmp[3]
-    tmp = tmp ^ rnd
-    m2.extend([0xff & (tmp>>(8*j)) for j in xrange(4)])
-
-print m2[:32], map(chr, m2[32:])
+    while True:
+        current = read_struct()
+        print type(current), current
+        if isinstance(current, EOF):
+            break
+        if isinstance(current, Field7):
+            for i in xrange(current.stars):
+                current = StarIdXY(read_field(4))
+                print type(current), current
