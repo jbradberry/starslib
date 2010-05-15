@@ -41,14 +41,22 @@ class BOF(StarsStruct):
         prng_init(self.share, self.player, self.turn, self.salt, self.uid)
 
 class Field6(StarsStruct):
-    pass
+    def __init__(self, data):
+        self._data = data
+        L = len(data)//4 + (len(data) % 4 != 0)
+        tmp = struct.unpack("%dI" % L, data + '\x00'*(4*L-len(data)))
+        tmp = [i^prng() for i in tmp]
+        tmp = struct.pack("%dI" % L, *tmp)
+        self.info = struct.unpack("%dB" % 4*L, tmp)
+
+    def __str__(self):
+        return str(self.info)
 
 class Field7(StarsStruct):
     def __init__(self, data):
         self._data = data
-        assert len(data) % 4 == 0
-        L = len(data)//4
-        tmp = struct.unpack("%dI" % L, data)
+        L = len(data)//4 + (len(data) % 4 != 0)
+        tmp = struct.unpack("%dI" % L, data + '\x00'*(4*L-len(data)))
         tmp = [i^prng() for i in tmp]
         tmp = struct.pack("%dI" % L, *tmp)
         self.info = struct.unpack("%dB" % 4*L, tmp)
@@ -73,6 +81,7 @@ class EOF(StarsStruct):
 
 fields = {8: BOF,
           7: Field7,
+          6: Field6,
           0: EOF}
 
 def prng():
