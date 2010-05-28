@@ -50,6 +50,29 @@ def crypt(lst):
     tmp = struct.unpack("%dB" % L, tmp)
     return tmp
 
+def decompress(lst):
+    top = " aehilnorstbcdfgjkmpquvwxyz+-,!.?:;'*%$"
+    tmp = ((x>>i) & 0xf for x in lst for i in (4,0))
+    result = []
+    for x in tmp:
+        if 0x0 <= x <= 0xA:
+            C = top[x]
+        if 0xB <= x <= 0xE:
+            x = ((x-0xB)<<4) + tmp.next()
+            if x < 0x1A:
+                C = chr(x + 0x41)
+            elif x < 0x24:
+                C = chr(x + 0x16)
+            else:
+                C = top[x - 0x19]
+        if x == 0xF:
+            try:
+                C = chr(tmp.next() + (tmp.next()<<4))
+            except StopIteration:
+                break
+        result.append(C)
+    return ''.join(result)
+
 def bof(lst):
     tmp = struct.pack("16B", *lst)
     magic, uid, ver, turn, ps, f = struct.unpack("4sI4H", tmp)
