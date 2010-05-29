@@ -57,7 +57,7 @@ def decompress(lst):
     for x in tmp:
         if 0x0 <= x <= 0xA:
             C = top[x]
-        if 0xB <= x <= 0xE:
+        elif 0xB <= x <= 0xE:
             x = ((x-0xB)<<4) + tmp.next()
             if x < 0x1A:
                 C = chr(x + 0x41)
@@ -65,7 +65,7 @@ def decompress(lst):
                 C = chr(x + 0x16)
             else:
                 C = top[x - 0x19]
-        if x == 0xF:
+        elif x == 0xF:
             try:
                 C = chr(tmp.next() + (tmp.next()<<4))
             except StopIteration:
