@@ -73,6 +73,9 @@ def decompress(lst):
         result.append(C)
     return ''.join(result)
 
+def eof(lst):
+    return lst
+
 def bof(lst):
     tmp = struct.pack("16B", *lst)
     magic, uid, ver, turn, ps, f = struct.unpack("4sI4H", tmp)
@@ -91,12 +94,11 @@ def ixy(lst):
     return i, x, y
 
 process = {-1: ixy,
-           6: crypt, 7: crypt,
-           8: bof,
-           12: crypt, 13: crypt, 14: crypt, 16: crypt,
-           17: crypt, 19: crypt, 20: crypt, 21: crypt,
-           26: crypt, 28: crypt, 30: crypt, 32: crypt,
-           33: crypt, 43: crypt, 45: crypt}
+           0: eof,
+           8: bof}
+
+# known encrypted: 6, 7, 12, 13, 14, 16, 17, 19, 20,
+#                  21, 26, 28, 30, 32, 33, 43, 45
 
 # .m: 31, 39, 40
 # .h: none
@@ -113,7 +115,7 @@ def parse(data):
             index += 2
         else:
             stype, size = -1, 4
-        buf = process.get(stype, lambda x: x)(
+        buf = process.get(stype, crypt)(
             struct.unpack("%dB" % size, data[index:index+size]))
         yield (stype, size, buf)
         index += size
