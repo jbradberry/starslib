@@ -91,9 +91,18 @@ def ixy(lst):
     return i, x, y
 
 process = {-1: ixy,
-           6: crypt,
-           7: crypt,
-           8: bof}
+           6: crypt, 7: crypt,
+           8: bof,
+           12: crypt, 13: crypt, 14: crypt, 16: crypt,
+           17: crypt, 19: crypt, 20: crypt, 21: crypt,
+           26: crypt, 28: crypt, 30: crypt, 32: crypt,
+           33: crypt, 43: crypt, 45: crypt}
+
+# .m: 31, 39, 40
+# .h: none
+# .x: 1, 2, 3, 4, 5, 9, 10, 23, 24, 27, 29, 34, 35, 37, 38, 40, 42, 44
+
+# missing: 11, 15, 18, 22, 25, 36, 41, >45
 
 def parse(data):
     index, head = 0, True
