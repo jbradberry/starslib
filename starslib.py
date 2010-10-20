@@ -41,7 +41,8 @@ def prng_init(flag, player, turn, salt, uid):
 
 def crypt(lst):
     L = len(lst)
-    if L % 4 != 0: # not sure this is the right thing
+    oL = L
+    if L % 4 != 0:
         lst = list(lst) + [0] * (4 - L%4)
         L = len(lst)
     tmp = struct.pack("%dB" % L, *lst)
@@ -49,7 +50,10 @@ def crypt(lst):
     tmp = [x^prng() for x in tmp]
     tmp = struct.pack("%dI" % (L//4), *tmp)
     tmp = struct.unpack("%dB" % L, tmp)
-    return tmp
+    return tmp[:oL]
+
+def uint(lst):
+    return sum(x<<(8*n) for n, x in enumerate(lst))
 
 def decompress(lst):
     top = " aehilnorstbcdfgjkmpquvwxyz+-,!.?:;'*%$"
