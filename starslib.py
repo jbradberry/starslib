@@ -102,14 +102,71 @@ process = {-1: ixy,
            0: eof,
            8: bof}
 
-# known encrypted: 6, 7, 12, 13, 14, 16, 17, 19, 20,
-#                  21, 26, 28, 30, 32, 33, 43, 45
+### Down the rabbit hole ###
 
-# .m: 31, 39, 40
-# .h: none
-# .x: 1, 2, 3, 4, 5, 9, 10, 23, 24, 27, 29, 34, 35, 37, 38, 40, 42, 44
 
-# missing: 11, 15, 18, 22, 25, 36, 41, >45
+class BOF(object):
+    slots = ('magic', 'game_id', 'file_version', 'turn',
+             'player', 'salt', 'filetype', 'done', 'in_use',
+             'multiyear', 'gameover', 'shareware', 'other',)
+
+
+class Universe(object):
+    @property
+    def data(self):
+        pass
+
+    @property
+    def data(self, lst):
+        self.game_id = uint(lst[0:4])
+        self.size = uint(lst[4:6])
+        self.density = uint(lst[6:8])
+        self.num_players = uint(lst[8:10])
+        self.num_stars = uint(lst[10:12])
+        self.positions = uint(lst[12:14])
+        self.flags = lst[16]
+        self.pcnt_planets = lst[20]
+        self.tech_levels = lst[21]
+        self.num_fields = lst[22]
+        self.score = lst[23]
+        self.exceed_second = lst[24]
+        self.production = lst[25]
+        self.capships = lst[26]
+        self.highscore = lst[27]
+        self.num_criteria = lst[28]
+        self.winner_decl = lst[29]
+        self.game_name = ''.join(map(chr, lst[32:]))
+        # size, density, positions, max_minrls, slow_tech, acc_bbs,
+        # no_rand, comp_alliance, pps, clumping, players
+        # victory conditions:
+        # owns % planets, attains tech # in # fields, score > #,
+        # exceed 2nd place by %, production > #, # cap ships,
+        # highest score after # yrs, meet # criteria, # yrs must pass
+
+
+class Star(object):
+    @property
+    def data(self):
+        tmp = (self.index<<22) + (self.y<<10) + self.x
+        return struct.unpack("4B", struct.pack("I", tmp))
+
+    @data.setter
+    def data(self, lst):
+        tmp = struct.unpack("I", struct.pack("4B", *lst))[0]
+        # this is actually dx, add the previous x value to convert to x.
+        self.x = (tmp & 0x000003ff)
+        self.y = (tmp & 0x003ffc00)>>10
+        self.index = (tmp & 0xffc00000)>>22
+
+def star_creator(start=1000):
+    def _star(data):
+        obj = Star()
+        obj.data = data
+        obj.x += start
+        start = obj.x
+        return obj
+    return _star
+
 
 def parse(data):
     index, head = 0, True
