@@ -1,9 +1,52 @@
 from bisect import bisect
+import numbers
+
+
+class ValidationError(Exception):
+    pass
+
+
+class Value(object):
+    def __init__(self, field):
+        self.field = field
+
+    def __get__(self, obj, type=None):
+        if obj is None:
+            raise AttributeError
+        if self.field.option is not None and not self.field.option():
+            return None
+        return obj.__dict__[self.field.name]
+
+    def __set__(self, obj, value):
+        self.field.validate(value)
+        value = self.field.clean(value)
+        obj.__dict__[self.field.name] = value
+
+
+def make_contrib(func=None):
+    def contribute_to_class(self, cls, name):
+        if func:
+            func(self, cls, name)
+        else:
+            super(self.__class__, self).contribute_to_class(cls, name)
+        setattr(cls, self.name, Value(self))
+
+    return contribute_to_class
+
+
+class FieldBase(type):
+    def __new__(cls, names, bases, attrs):
+        new_cls = super(FieldBase, cls).__new__(cls, names, bases, attrs)
+        new_cls.contribute_to_class = make_contrib(
+            attrs.get('contribute_to_class'))
+        return new_cls
 
 
 class Field(object):
+    __metaclass__ = FieldBase
+
     counter = 0
-    def __init__(self, size=16, *args, **kwargs):
+    def __init__(self, size=16, **kwargs):
         self._counter = Field.counter
         Field.counter += 1
         self.size = size
@@ -20,6 +63,51 @@ class Field(object):
         if byte >= len(seq) and not self.append:
             raise ValueError
         size = self.size
+
+    def clean(self, value):
+        return value
+
+    def validate(self, value):
+        if value is None and self.option is None:
+            raise ValidationError
+        if self.value is not None and value != self.value:
+            raise ValidationError
+
+
+class Int(Field):
+    def validate(self, value):
+        super(Int, self).validate(value)
+        if not isinstance(value, number.Integral):
+            raise ValidationError
+        if hasattr(self, 'max') and value > self.max:
+            raise ValidationError
+        if not 0 <= value < 2**self.size:
+            raise ValidationError
+
+
+class Bool(Int):
+    def __init__(self, **kwargs):
+        kwargs.update(size=1)
+        super(Bool, self).__init__(**kwargs)
+
+    def clean(self, value):
+        return bool(value)
+
+
+class Str(Field):
+    def validate(self, value):
+        super(Str, self).validate(value)
+        if not isinstance(value, basestring):
+            raise ValidationError
+        if len(value) != self.size:
+            raise ValidationError
+
+
+class CStr(Field):
+    def validate(self, value):
+        super(CStr, self).validate(value)
+        if not isinstance(value, basestring):
+            raise ValidationError
 
 
 class StructBase(type):
@@ -56,7 +144,7 @@ class Struct(object):
             byte, bit = field.parse(seq, byte, bit)
         if byte != len(seq) or bit != 0:
             raise ValueError
-        
+
 
 class StarsFile(object):
     prime = (3,   5,   7,   11,  13,  17,  19,  23,
@@ -98,22 +186,6 @@ class StarsFile(object):
         self.hi = (0x7fffff07 * int(self.hi/-52774) + 40692 * self.hi)%(1<<32)
         if self.hi >= (1<<31): self.hi += 0x7fffff07 - (1<<32)
         return (self.lo - self.hi) % (1<<32)
-
-
-class Int(Field):
-    pass
-
-
-class Bool(Field):
-    pass
-
-
-class Str(Field):
-    pass
-
-
-class CStr(Field):
-    pass
 
 
 class Type0(Struct):
