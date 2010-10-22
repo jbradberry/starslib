@@ -61,8 +61,23 @@ class Field(object):
 
     def parse(self, seq, byte, bit):
         if byte >= len(seq) and not self.append:
-            raise ValueError
+            raise ValidationError
         size = self.size
+        result = 0
+        try:
+            while size > 0:
+                if size >= 8-bit:
+                    result = (result<<(8-bit)) + (seq[byte]>>bit)
+                    byte += 1
+                    bits = 0
+                    size -= 8-bit
+                else:
+                    result = (result<<size) + ((seq[byte]>>bit)&(2**size-1))
+                    bits += size
+                    size = 0
+        except IndexError:
+            raise ValidationError
+        return result, byte, bit
 
     def clean(self, value):
         return value
@@ -102,12 +117,80 @@ class Str(Field):
         if len(value) != self.size:
             raise ValidationError
 
+    def parse(self, seq, byte, bit):
+        if bit != 0 or self.size % 8 != 0:
+            raise ValidationError
+        if self.size > 8*(len(seq) - byte) - bit:
+            raise ValidationError
+        result = ''.join(map(chr, seq[byte:byte+self.size//8]))
+        byte += size // 8
+        return result, byte, bit
+
 
 class CStr(Field):
     def validate(self, value):
         super(CStr, self).validate(value)
         if not isinstance(value, basestring):
             raise ValidationError
+
+    def parse(self, seq, byte, bit):
+        if bit != 0 or self.size % 8 != 0:
+            raise ValidationError
+        if self.size > 8*(len(seq) - byte):
+            raise ValidationError
+        realsize = sum(x<<(8*n) for n, x in
+                       enumerate(seq[byte:byte+self.size//8]))
+        byte += self.size // 8
+        if realsize > len(seq) - byte:
+            raise ValidationError
+        result = self.decompress(seq[byte:byte+realsize])
+        byte += realsize
+        return result, byte, bit
+
+    def decompress(self, lst):
+        top = " aehilnorstbcdfgjkmpquvwxyz+-,!.?:;'*%$"
+        tmp = ((x>>i) & 0xf for x in lst for i in (4,0))
+        result = []
+        for x in tmp:
+            if 0x0 <= x <= 0xA:
+                C = top[x]
+            elif 0xB <= x <= 0xE:
+                x = ((x-0xB)<<4) + tmp.next()
+                if x < 0x1A:
+                    C = chr(x + 0x41)
+                elif x < 0x24:
+                    C = chr(x + 0x16)
+                else:
+                    C = top[x - 0x19]
+            elif x == 0xF:
+                try:
+                    C = chr(tmp.next() + (tmp.next()<<4))
+                except StopIteration:
+                    break
+            result.append(C)
+        return ''.join(result)
+
+    def compress(self, S):
+        result = []
+        for c in S:
+            if c in top[:11]:
+                result.append(top.index(c))
+            elif c in top[11:]:
+                tmp = top.index(c) + 0x19
+                result.extend(((tmp>>4) + 0xB, tmp & 0xF))
+            else:
+                tmp = ord(c)
+                if 0x41 <= tmp < 0x5B:
+                    tmp -= 0x41
+                    result.extend(((tmp>>4) + 0xB, tmp & 0xF))
+                elif 0x30 <= tmp < 0x3A:
+                    tmp -= 0x16
+                    result.extend(((tmp>>4) + 0xB, tmp & 0xF))
+                else:
+                    result.extend((0xF, tmp>>4, tmp & 0xF))
+        if len(result) % 2 != 0:
+            result.append(0xF)
+        return [result[i]+(result[i+1]<<4) for i in xrange(0, len(result), 2)]
 
 
 class StructBase(type):
@@ -120,6 +203,7 @@ class StructBase(type):
         module = attrs.pop('__module__')
         new_class = super_new(cls, name, bases, {'__module__': module})
 
+        new_class.add_to_class('fields', [])
         for obj_name, obj in attrs.iteritems():
             new_class.add_to_class(obj_name, obj)
 
@@ -141,7 +225,8 @@ class Struct(object):
     def bytes(self, seq):
         byte, bit = 2, 0 # ignore the 16-bits of type/size info
         for field in fields:
-            byte, bit = field.parse(seq, byte, bit)
+            value, byte, bit = field.parse(seq, byte, bit)
+            self.__dict__[field.name] = value
         if byte != len(seq) or bit != 0:
             raise ValueError
 
