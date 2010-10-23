@@ -130,6 +130,9 @@ class Str(Field):
 class CStr(Field):
     top = " aehilnorstbcdfgjkmpquvwxyz+-,!.?:;'*%$"
 
+    def __init__(self, size=8, **kwargs):
+        super(CStr, self).__init__(**kwargs)
+
     def validate(self, value):
         super(CStr, self).validate(value)
         if not isinstance(value, basestring):
