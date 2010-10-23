@@ -23,12 +23,12 @@ class Value(object):
         obj.__dict__[self.field.name] = value
 
 
-def make_contrib(func=None):
+def make_contrib(new_cls, func=None):
     def contribute_to_class(self, cls, name):
         if func:
             func(self, cls, name)
         else:
-            super(self.__class__, self).contribute_to_class(cls, name)
+            super(new_cls, self).contribute_to_class(cls, name)
         setattr(cls, self.name, Value(self))
 
     return contribute_to_class
@@ -37,7 +37,7 @@ def make_contrib(func=None):
 class FieldBase(type):
     def __new__(cls, names, bases, attrs):
         new_cls = super(FieldBase, cls).__new__(cls, names, bases, attrs)
-        new_cls.contribute_to_class = make_contrib(
+        new_cls.contribute_to_class = make_contrib(new_cls,
             attrs.get('contribute_to_class'))
         return new_cls
 
@@ -281,6 +281,9 @@ class Star(Struct):
     y = Int(12)
     name_id = Int(10)
 
+
+def filetype(*args):
+    return args
 
 class Type0(Struct):
     """ End of file """
