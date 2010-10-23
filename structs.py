@@ -231,7 +231,7 @@ class Struct(object):
     @bytes.setter
     def bytes(self, seq):
         byte, bit = self.byte, self.bit
-        for field in fields:
+        for field in self.fields:
             value, byte, bit = field.parse(seq, byte, bit)
             self.__dict__[field.name] = value
         if byte != len(seq) or bit != 0:
