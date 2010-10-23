@@ -191,7 +191,7 @@ class CStr(Field):
                     result.extend((0xF, tmp>>4, tmp & 0xF))
         if len(result) % 2 != 0:
             result.append(0xF)
-        return [result[i]+(result[i+1]<<4) for i in xrange(0, len(result), 2)]
+        return [(result[i]<<4)+result[i+1] for i in xrange(0, len(result), 2)]
 
 
 class StructBase(type):
