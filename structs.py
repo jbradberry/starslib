@@ -194,7 +194,7 @@ class CStr(Field):
 
 
 class StructBase(type):
-    def __new__(self, cls, name, bases, attrs):
+    def __new__(cls, name, bases, attrs):
         super_new = super(StructBase, cls).__new__
         parents = [b for b in bases if isinstance(b, StructBase)]
         if not parents:
@@ -216,6 +216,7 @@ class StructBase(type):
 
 class Struct(object):
     __metaclass__ = StructBase
+    byte, bit = 2, 0 # ignore the 16-bits of type/size info
 
     @property
     def bytes(self):
@@ -223,15 +224,16 @@ class Struct(object):
 
     @bytes.setter
     def bytes(self, seq):
-        byte, bit = 2, 0 # ignore the 16-bits of type/size info
+        byte, bit = self.byte, self.bit
         for field in fields:
             value, byte, bit = field.parse(seq, byte, bit)
             self.__dict__[field.name] = value
         if byte != len(seq) or bit != 0:
-            raise ValueError
+            raise ValidationError
 
 
 class StarsFile(object):
+    # Primes, but not really.  279 should be 269.
     prime = (3,   5,   7,   11,  13,  17,  19,  23,
              29,  31,  37,  41,  43,  47,  53,  59,
              61,  67,  71,  73,  79,  83,  89,  97,
@@ -253,13 +255,12 @@ class StarsFile(object):
         self.hi, self.lo = 0, 0
 
     def prng_init(self, flag, player, turn, salt, uid):
-        prime = StarsFile.prime
         i, j = (salt>>5) & 0x1f, salt & 0x1f
         if salt < (1<<10):
             i += (1<<5)
         else:
             j += (1<<5)
-        self.hi, self.lo = prime[i], prime[j]
+        self.hi, self.lo = self.prime[i], self.prime[j]
 
         seed = ((player%4)+1) * ((uid%4)+1) * ((turn%4)+1) + flag
         for i in xrange(seed):
@@ -271,6 +272,14 @@ class StarsFile(object):
         self.hi = (0x7fffff07 * int(self.hi/-52774) + 40692 * self.hi)%(1<<32)
         if self.hi >= (1<<31): self.hi += 0x7fffff07 - (1<<32)
         return (self.lo - self.hi) % (1<<32)
+
+
+class Star(Struct):
+    byte, bit = 0, 0
+
+    dx = Int(10)
+    y = Int(12)
+    name_id = Int(10)
 
 
 class Type0(Struct):
