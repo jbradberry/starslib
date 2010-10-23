@@ -128,6 +128,8 @@ class Str(Field):
 
 
 class CStr(Field):
+    top = " aehilnorstbcdfgjkmpquvwxyz+-,!.?:;'*%$"
+
     def validate(self, value):
         super(CStr, self).validate(value)
         if not isinstance(value, basestring):
@@ -148,12 +150,11 @@ class CStr(Field):
         return result, byte, bit
 
     def decompress(self, lst):
-        top = " aehilnorstbcdfgjkmpquvwxyz+-,!.?:;'*%$"
         tmp = ((x>>i) & 0xf for x in lst for i in (4,0))
         result = []
         for x in tmp:
             if 0x0 <= x <= 0xA:
-                C = top[x]
+                C = self.top[x]
             elif 0xB <= x <= 0xE:
                 x = ((x-0xB)<<4) + tmp.next()
                 if x < 0x1A:
@@ -161,7 +162,7 @@ class CStr(Field):
                 elif x < 0x24:
                     C = chr(x + 0x16)
                 else:
-                    C = top[x - 0x19]
+                    C = self.top[x - 0x19]
             elif x == 0xF:
                 try:
                     C = chr(tmp.next() + (tmp.next()<<4))
@@ -173,10 +174,10 @@ class CStr(Field):
     def compress(self, S):
         result = []
         for c in S:
-            if c in top[:11]:
-                result.append(top.index(c))
-            elif c in top[11:]:
-                tmp = top.index(c) + 0x19
+            if c in self.top[:11]:
+                result.append(self.top.index(c))
+            elif c in self.top[11:]:
+                tmp = self.top.index(c) + 0x19
                 result.extend(((tmp>>4) + 0xB, tmp & 0xF))
             else:
                 tmp = ord(c)
@@ -206,6 +207,8 @@ class StructBase(type):
         new_class.add_to_class('fields', [])
         for obj_name, obj in attrs.iteritems():
             new_class.add_to_class(obj_name, obj)
+
+        return new_class
 
     def add_to_class(cls, name, value):
         if hasattr(value, 'contribute_to_class'):
