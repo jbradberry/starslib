@@ -65,15 +65,17 @@ class Field(object):
         size = self.size
         result = 0
         try:
+            acc_bit = 0
             while size > 0:
                 if size >= 8-bit:
-                    result = (result<<(8-bit)) + (seq[byte]>>bit)
+                    result += seq[byte] << acc_bit
                     byte += 1
-                    bits = 0
+                    bit = 0
+                    acc_bit += 8
                     size -= 8-bit
                 else:
-                    result = (result<<size) + ((seq[byte]>>bit)&(2**size-1))
-                    bits += size
+                    result += ((seq[byte]>>bit) & (2**size-1)) << acc_bit
+                    bit += size
                     size = 0
         except IndexError:
             raise ValidationError
