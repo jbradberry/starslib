@@ -1,4 +1,6 @@
+from __future__ import division, with_statement
 from bisect import bisect
+import sys, struct
 import numbers
 
 
@@ -224,7 +226,6 @@ class StructBase(type):
 
 class Struct(object):
     __metaclass__ = StructBase
-    byte, bit = 2, 0 # ignore the 16-bits of type/size info
 
     @property
     def bytes(self):
@@ -232,7 +233,7 @@ class Struct(object):
 
     @bytes.setter
     def bytes(self, seq):
-        byte, bit = self.byte, self.bit
+        byte, bit = 0, 0
         for field in self.fields:
             value, byte, bit = field.parse(seq, byte, bit)
             self.__dict__[field.name] = value
@@ -261,6 +262,8 @@ class StarsFile(object):
 
     def __init__(self):
         self.hi, self.lo = 0, 0
+        self.structs = []
+        self.stars = 0
 
     def prng_init(self, flag, player, turn, salt, uid):
         i, j = (salt>>5) & 0x1f, salt & 0x1f
@@ -281,10 +284,36 @@ class StarsFile(object):
         if self.hi >= (1<<31): self.hi += 0x7fffff07 - (1<<32)
         return (self.lo - self.hi) % (1<<32)
 
+    @property
+    def bytes(self):
+        seq = [byte for S in self.structs for byte in S]
+        return ''.join(map(chr, seq))
+
+    @bytes.setter
+    def bytes(self, data):
+        index = 0
+        self.structs = []
+        while index < len(data):
+            if self.stars > 0:
+                stype, size = None, 4
+            else:
+                hdr = struct.unpack("H", data[index:index+2])[0]
+                stype, size = (hdr & 0xfc00)>>10, hdr & 0x03ff
+                index += 2
+
+            current = self.dispatch(stype)
+            buf = struct.unpack("%dB" % size, data[index:index+size])
+            if current.encrypted:
+                buf = crypt(buf)
+            current.bytes = buf
+            self.structs.append(current)
+            index += size
+
+    def dispatch(self, stype):
+        pass
+
 
 class Star(Struct):
-    byte, bit = 0, 0
-
     dx = Int(10)
     y = Int(12)
     name_id = Int(10)
