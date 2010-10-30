@@ -227,6 +227,8 @@ class StructBase(type):
 class Struct(object):
     __metaclass__ = StructBase
 
+    encrypted = True
+
     @property
     def bytes(self):
         return ()
@@ -286,7 +288,12 @@ class StarsFile(object):
 
     @property
     def bytes(self):
-        seq = [byte for S in self.structs for byte in S]
+        seq = []
+        for S in self.structs:
+            if S.id is not None:
+                L = len(S.bytes)
+                seq.extend((L & 0xff, S.id<<2 | L>>8))
+            seq.extend(self.crypt(S.bytes) if S.encrypted else S.bytes)
         return ''.join(map(chr, seq))
 
     @bytes.setter
@@ -304,8 +311,9 @@ class StarsFile(object):
             current = self.dispatch(stype)
             buf = struct.unpack("%dB" % size, data[index:index+size])
             if current.encrypted:
-                buf = crypt(buf)
+                buf = self.crypt(buf)
             current.bytes = buf
+            current.adjust()
             self.structs.append(current)
             index += size
 
@@ -314,6 +322,8 @@ class StarsFile(object):
 
 
 class Star(Struct):
+    encrypted = False
+
     dx = Int(10)
     y = Int(12)
     name_id = Int(10)
@@ -324,6 +334,8 @@ def filetype(*args):
 
 class Type0(Struct):
     """ End of file """
+    encrypted = False
+
     info = Int(option=filetype('m', 'hst', 'xy'))
 
 
