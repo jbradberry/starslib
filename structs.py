@@ -286,6 +286,19 @@ class StarsFile(object):
         if self.hi >= (1<<31): self.hi += 0x7fffff07 - (1<<32)
         return (self.lo - self.hi) % (1<<32)
 
+    def crypt(self, seq):
+        L = len(seq)
+        oL = L
+        if L % 4 != 0:
+            seq = list(seq) + [0] * (4 - L%4)
+            L = len(seq)
+        tmp = struct.pack("%dB" % L, *seq)
+        tmp = struct.unpack("%dI" % (L//4), tmp)
+        tmp = [x^self.prng() for x in tmp]
+        tmp = struct.pack("%dI" % (L//4), *tmp)
+        tmp = struct.unpack("%dB" % L, tmp)
+        return tmp[:oL]
+
     @property
     def bytes(self):
         seq = []
