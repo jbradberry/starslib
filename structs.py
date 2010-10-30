@@ -214,6 +214,8 @@ class StructBase(type):
         new_class.add_to_class('fields', [])
         for obj_name, obj in attrs.iteritems():
             new_class.add_to_class(obj_name, obj)
+        if 'type' in attrs:
+            new_class._registry[attrs['type']] = new_class
 
         return new_class
 
@@ -226,6 +228,7 @@ class StructBase(type):
 
 class Struct(object):
     __metaclass__ = StructBase
+    _registry = {}
 
     encrypted = True
 
@@ -335,6 +338,7 @@ class StarsFile(object):
 
 
 class Star(Struct):
+    type = None
     encrypted = False
 
     dx = Int(10)
@@ -347,6 +351,7 @@ def filetype(*args):
 
 class Type0(Struct):
     """ End of file """
+    type = 0
     encrypted = False
 
     info = Int(option=filetype('m', 'hst', 'xy'))
@@ -354,6 +359,7 @@ class Type0(Struct):
 
 class Type8(Struct):
     """ Beginning of file """
+    type = 8
     encrypted = False
 
     magic = Str(32, value="J3J3")
@@ -373,11 +379,13 @@ class Type8(Struct):
 
 class Type6(Struct):
     """ Race data """
-    pass
+    type = 6
 
 
 class Type45(Struct):
     """ Score data """
+    type = 45
+
     player = Int(5)
     unknown1 = Bool(value=True) # rare False?
     f_owns_planets = Bool()
@@ -403,6 +411,8 @@ class Type45(Struct):
 
 class Type20(Struct):
     """ Waypoint - Server """
+    type = 20
+
     x = Int()
     y = Int()
     planet_id = Int()
@@ -413,6 +423,8 @@ class Type20(Struct):
 
 class Type30(Struct):
     """ Battle plans """
+    type = 30
+
     u1 = Int(8)
     u2 = Int(8)
     u3 = Int(8)
@@ -422,6 +434,8 @@ class Type30(Struct):
 
 class Type40(Struct):
     """ In-game messages """
+    type = 40
+
     unknown1 = Int(32)
     sender_id = Int(8)
     unknown2 = Int(40)
@@ -430,6 +444,8 @@ class Type40(Struct):
 
 class Type17(Struct):
     """ Alien fleets """
+    type = 17
+
     ship_id = Int(8)
     unknown1 = Int(8)
     player_id = Int(8)
@@ -441,6 +457,8 @@ class Type17(Struct):
 
 class Type43(Struct):
     """ Mass packets """
+    type = 43
+
     # optional sizes: 2, 4, and 18
     unknown1 = Int()
     x = Int()
@@ -454,6 +472,8 @@ class Type43(Struct):
 
 class Type3(Struct):
     """ Delete waypoint """
+    type = 3
+
     fleet_id = Int(9)
     unknown1 = Int(7)
     sequence_num = Int(8)
