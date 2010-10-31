@@ -83,6 +83,15 @@ class Field(object):
             raise ValidationError
         return result, byte, bit
 
+    def deparse(self, value, prev=0, bit=0):
+        value = value << bit | prev
+        size = self.size + bit
+        extend = []
+        while size >= 8:
+            value, tmp, size = value >> 8, value & 0xff, size - 8
+            extend.append(tmp)
+        return extend, value, size
+
     def clean(self, value):
         return value
 
@@ -130,6 +139,11 @@ class Str(Field):
         byte += size // 8
         return result, byte, bit
 
+    def deparse(self, value, prev=0, bit=0):
+        if bit != 0:
+            raise ValidationError
+        return tuple(map(ord, value)), 0, 0
+
 
 class CStr(Field):
     top = " aehilnorstbcdfgjkmpquvwxyz+-,!.?:;'*%$"
@@ -156,6 +170,14 @@ class CStr(Field):
         result = self.decompress(seq[byte:byte+realsize])
         byte += realsize
         return result, byte, bit
+
+    def deparse(self, value, prev=0, bit=0):
+        if bit != 0:
+            raise ValidationError
+        S = tuple(self.compress(value))
+        L = len(S)
+        size = tuple(L>>(8*n) & 0xff for n in xrange(self.size//8))
+        return size + S, 0, 0
 
     def decompress(self, lst):
         tmp = ((x>>i) & 0xf for x in lst for i in (4,0))
@@ -238,7 +260,14 @@ class Struct(object):
 
     @property
     def bytes(self):
-        return ()
+        seq, prev, bit = [], 0, 0
+        for field in self.fields:
+            value = self.__dict__[field.name]
+            extend, prev, bit = field.deparse(value, prev, bit)
+            seq.extend(extend)
+        if bit != 0 or prev != 0:
+            raise ValidationError
+        return tuple(seq)
 
     @bytes.setter
     def bytes(self, seq):
