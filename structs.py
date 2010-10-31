@@ -312,9 +312,9 @@ class StarsFile(object):
     def bytes(self):
         seq = []
         for S in self.structs:
-            if S.id is not None:
+            if S.type is not None:
                 L = len(S.bytes)
-                seq.extend((L & 0xff, S.id<<2 | L>>8))
+                seq.extend((L & 0xff, S.type<<2 | L>>8))
             seq.extend(self.crypt(S.bytes) if S.encrypted else S.bytes)
             S.adjust()
         return ''.join(map(chr, seq))
