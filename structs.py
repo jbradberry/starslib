@@ -334,7 +334,11 @@ class StarsFile(object):
             index += size
 
     def dispatch(self, stype):
-        pass
+        if stype in Struct._registry:
+            return Struct._registry[stype](self)
+        return type('Type%d' % stype, (object,), {'adjust': lambda s: None,
+                                                  'encrypted': True,
+                                                  'type': stype})
 
 
 class Star(Struct):
