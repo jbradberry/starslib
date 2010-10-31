@@ -135,6 +135,7 @@ class CStr(Field):
     top = " aehilnorstbcdfgjkmpquvwxyz+-,!.?:;'*%$"
 
     def __init__(self, size=8, **kwargs):
+        kwargs.update(size=size)
         super(CStr, self).__init__(**kwargs)
 
     def validate(self, value):
