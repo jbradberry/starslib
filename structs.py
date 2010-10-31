@@ -70,11 +70,11 @@ class Field(object):
             acc_bit = 0
             while size > 0:
                 if size >= 8-bit:
-                    result += seq[byte] << acc_bit
+                    result += (seq[byte]>>bit) << acc_bit
                     byte += 1
-                    bit = 0
-                    acc_bit += 8
+                    acc_bit += 8-bit
                     size -= 8-bit
+                    bit = 0
                 else:
                     result += ((seq[byte]>>bit) & (2**size-1)) << acc_bit
                     bit += size
@@ -141,7 +141,7 @@ class Str(Field):
         if self.size > 8*(len(seq) - byte) - bit:
             raise ValidationError
         result = ''.join(map(chr, seq[byte:byte+self.size//8]))
-        byte += size // 8
+        byte += self.size // 8
         return result, byte, bit
 
     def deparse(self, value, prev=0, bit=0):
