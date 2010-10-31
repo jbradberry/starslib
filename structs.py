@@ -123,6 +123,11 @@ class Bool(Int):
 
 
 class Str(Field):
+    def __init__(self, *args, **kwargs):
+        super(Str, self).__init__(*args, **kwargs)
+        if self.size % 8 != 0:
+            raise ValidationError
+
     def validate(self, value):
         super(Str, self).validate(value)
         if not isinstance(value, basestring):
@@ -131,7 +136,7 @@ class Str(Field):
             raise ValidationError
 
     def parse(self, seq, byte, bit):
-        if bit != 0 or self.size % 8 != 0:
+        if bit != 0:
             raise ValidationError
         if self.size > 8*(len(seq) - byte) - bit:
             raise ValidationError
@@ -151,6 +156,8 @@ class CStr(Field):
     def __init__(self, size=8, **kwargs):
         kwargs.update(size=size)
         super(CStr, self).__init__(**kwargs)
+        if self.size % 8 != 0:
+            raise ValidationError
 
     def validate(self, value):
         super(CStr, self).validate(value)
@@ -158,7 +165,7 @@ class CStr(Field):
             raise ValidationError
 
     def parse(self, seq, byte, bit):
-        if bit != 0 or self.size % 8 != 0:
+        if bit != 0:
             raise ValidationError
         if self.size > 8*(len(seq) - byte):
             raise ValidationError
