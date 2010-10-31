@@ -232,6 +232,9 @@ class Struct(object):
 
     encrypted = True
 
+    def __init__(self, sfile):
+        self.file = sfile
+
     @property
     def bytes(self):
         return ()
@@ -244,6 +247,9 @@ class Struct(object):
             self.__dict__[field.name] = value
         if byte != len(seq) or bit != 0:
             raise ValidationError
+
+    def adjust(self):
+        return
 
 
 class StarsFile(object):
@@ -270,7 +276,7 @@ class StarsFile(object):
         self.structs = []
         self.stars = 0
 
-    def prng_init(self, flag, player, turn, salt, uid):
+    def prng_init(self, uid, turn, player, salt, flag):
         i, j = (salt>>5) & 0x1f, salt & 0x1f
         if salt < (1<<10):
             i += (1<<5)
@@ -310,6 +316,7 @@ class StarsFile(object):
                 L = len(S.bytes)
                 seq.extend((L & 0xff, S.id<<2 | L>>8))
             seq.extend(self.crypt(S.bytes) if S.encrypted else S.bytes)
+            S.adjust()
         return ''.join(map(chr, seq))
 
     @bytes.setter
@@ -349,6 +356,9 @@ class Star(Struct):
     y = Int(12)
     name_id = Int(10)
 
+    def adjust(self):
+        self.file.stars -= 1
+
 
 def filetype(*args):
     return args
@@ -379,6 +389,28 @@ class Type8(Struct):
     gameover = Bool()
     shareware = Bool()
     unused = Int(3, value=0)
+
+    def adjust(self):
+        self.file.prng_init(self.game_id, self.turn, self.player,
+                            self.salt, self.shareware)
+
+
+class Type7(Struct):
+    """ Game definition """
+    type = 7
+
+    game_id = Int(32)
+    size = Int()
+    density = Int()
+    num_players = Int()
+    num_stars = Int()
+    start_distance = Int()
+    unknown1 = Int()
+    flags1 = Int(8)
+    unknown2 = Int(24)
+
+    def adjust(self):
+        self.file.stars = self.num_stars
 
 
 class Type6(Struct):
@@ -458,6 +490,7 @@ class Type17(Struct):
     y = Int()
     unknown3 = Int(56)
     mass = Int(32)
+
 
 class Type43(Struct):
     """ Mass packets """
