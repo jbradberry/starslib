@@ -368,13 +368,13 @@ class StarsFile(object):
                 stype, size = (hdr & 0xfc00)>>10, hdr & 0x03ff
                 index += 2
 
-            current = self.dispatch(stype)
+            S = self.dispatch(stype)
             buf = struct.unpack("%dB" % size, data[index:index+size])
-            if current.encrypted:
+            if S.encrypted:
                 buf = self.crypt(buf)
-            current.bytes = buf
-            current.adjust()
-            self.structs.append(current)
+            S.bytes = buf
+            S.adjust()
+            self.structs.append(S)
             index += size
 
     def dispatch(self, stype):
