@@ -15,7 +15,7 @@ class Value(object):
     def __get__(self, obj, type=None):
         if obj is None:
             raise AttributeError
-        if self.field.option is not None and not self.field.option():
+        if self.field.option is not None and not self.field.option(self.field):
             return None
         return obj.__dict__[self.field.name]
 
@@ -48,10 +48,15 @@ class Field(object):
     __metaclass__ = FieldBase
 
     counter = 0
-    def __init__(self, size=16, **kwargs):
+    def __init__(self, size=16, value=None, max=None, option=None,
+                 append=False, **kwargs):
         self._counter = Field.counter
         Field.counter += 1
         self.size = size
+        self.value = value
+        self.max = max
+        self.option = option
+        self.append = append
 
     def __cmp__(self, other):
         return cmp(self._counter, other._counter)
@@ -62,8 +67,10 @@ class Field(object):
         cls.fields.insert(bisect(cls.fields, self), self)
 
     def parse(self, seq, byte, bit):
-        if byte >= len(seq) and not self.append:
-            raise ValidationError
+        if byte >= len(seq):
+            if not self.append:
+                raise ValidationError("%s, %s" % (self.__class__, self.struct))
+            return None, byte, bit
         size = self.size
         result = 0
         try:
@@ -79,8 +86,8 @@ class Field(object):
                     result += ((seq[byte]>>bit) & (2**size-1)) << acc_bit
                     bit += size
                     size = 0
-        except IndexError:
-            raise ValidationError
+        except IndexError, e:
+            raise ValidationError("%s %s %s %s" % (self.struct, self.__class__, seq, byte))
         return result, byte, bit
 
     def deparse(self, value, prev=0, bit=0):
@@ -107,7 +114,7 @@ class Int(Field):
         super(Int, self).validate(value)
         if not isinstance(value, number.Integral):
             raise ValidationError
-        if hasattr(self, 'max') and value > self.max:
+        if self.max is not None and value > self.max:
             raise ValidationError
         if not 0 <= value < 2**self.size:
             raise ValidationError
@@ -283,7 +290,7 @@ class Struct(object):
             value, byte, bit = field.parse(seq, byte, bit)
             self.__dict__[field.name] = value
         if byte != len(seq) or bit != 0:
-            raise ValidationError
+            raise ValidationError("%s" % (self.__class__,))
 
     def adjust(self):
         return
@@ -380,9 +387,12 @@ class StarsFile(object):
     def dispatch(self, stype):
         if stype in Struct._registry:
             return Struct._registry[stype](self)
-        return type('Type%d' % stype, (object,), {'adjust': lambda s: None,
-                                                  'encrypted': True,
-                                                  'type': stype})
+        cls = type('Type%d' % stype, (object,), {'encrypted': True,
+                                                 'type': stype})
+        def adjust(self):
+            return
+        setattr(cls, 'adjust', adjust.__get__(self, cls))
+        return cls
 
 
 class Star(Struct):
@@ -397,15 +407,12 @@ class Star(Struct):
         self.file.stars -= 1
 
 
-def filetype(*args):
-    return args
-
 class Type0(Struct):
     """ End of file """
     type = 0
     encrypted = False
 
-    info = Int(option=filetype('m', 'hst', 'xy'))
+    info = Int(append=True)
 
 
 class Type8(Struct):
@@ -450,9 +457,9 @@ class Type7(Struct):
         self.file.stars = self.num_stars
 
 
-class Type6(Struct):
-    """ Race data """
-    type = 6
+# class Type6(Struct):
+#     """ Race data """
+#     type = 6
 
 
 class Type45(Struct):
