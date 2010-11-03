@@ -112,8 +112,8 @@ class Field(object):
 class Int(Field):
     def validate(self, value):
         super(Int, self).validate(value)
-        if not isinstance(value, number.Integral):
-            raise ValidationError
+        if not isinstance(value, numbers.Integral):
+            raise ValidationError("%s" % value)
         if self.max is not None and value > self.max:
             raise ValidationError
         if not 0 <= value < 2**self.size:
@@ -139,8 +139,8 @@ class Str(Field):
         super(Str, self).validate(value)
         if not isinstance(value, basestring):
             raise ValidationError
-        if len(value) != self.size:
-            raise ValidationError
+        if len(value) != self.size // 8:
+            raise ValidationError("%s %s" % (value, self.size))
 
     def parse(self, seq, byte, bit):
         if bit != 0:
@@ -276,7 +276,7 @@ class Struct(object):
     def bytes(self):
         seq, prev, bit = [], 0, 0
         for field in self.fields:
-            value = self.__dict__[field.name]
+            value = getattr(self, field.name)
             extend, prev, bit = field.deparse(value, prev, bit)
             seq.extend(extend)
         if bit != 0 or prev != 0:
@@ -288,7 +288,7 @@ class Struct(object):
         byte, bit = 0, 0
         for field in self.fields:
             value, byte, bit = field.parse(seq, byte, bit)
-            self.__dict__[field.name] = value
+            setattr(self, field.name, value)
         if byte != len(seq) or bit != 0:
             raise ValidationError("%s" % (self.__class__,))
 
