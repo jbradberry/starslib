@@ -286,6 +286,11 @@ class Struct(object):
     def __init__(self, sfile):
         self.file = sfile
 
+    def __unicode__(self):
+        return "{%s}" % (', '.join("%s: %r" % (f.name, getattr(self, f.name))
+                                   for f in self.fields
+                                   if getattr(self, f.name) is not None),)
+
     @property
     def bytes(self):
         seq, prev, bit = [], 0, 0
