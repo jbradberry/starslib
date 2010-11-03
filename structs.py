@@ -15,12 +15,13 @@ class Value(object):
     def __get__(self, obj, type=None):
         if obj is None:
             raise AttributeError
-        if self.field.option is not None and not self.field.option(self.field):
+        if self.field.option and not self.field.option(self.field):
             return None
         return obj.__dict__[self.field.name]
 
     def __set__(self, obj, value):
-        self.field.validate(value)
+        if not self.field.skip(value):
+            self.field.validate(value)
         value = self.field.clean(value)
         obj.__dict__[self.field.name] = value
 
@@ -102,9 +103,22 @@ class Field(object):
     def clean(self, value):
         return value
 
+    def skip(self, value):
+        if value is None:
+            if self.append:
+                return True
+            if self.option and not self.option(self):
+                return True
+        return False
+
     def validate(self, value):
-        if value is None and self.option is None:
-            raise ValidationError
+        if value is None:
+            if self.option:
+                if self.option(self):
+                    raise ValidationError
+                return
+            if not self.append:
+                raise ValidationError
         if self.value is not None and value != self.value:
             raise ValidationError
 
