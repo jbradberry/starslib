@@ -406,12 +406,16 @@ class StarsFile(object):
     def dispatch(self, stype):
         if stype in Struct._registry:
             return Struct._registry[stype](self)
-        cls = type('Type%d' % stype, (object,), {'encrypted': True,
-                                                 'type': stype})
-        def adjust(self):
-            return
-        setattr(cls, 'adjust', adjust.__get__(self, cls))
-        return cls
+        instance = FakeStruct(self)
+        instance.type = stype
+        return instance
+
+
+class FakeStruct(Struct):
+    bytes = None
+
+    def __unicode__(self):
+        return unicode(self.bytes)
 
 
 class Star(Struct):
