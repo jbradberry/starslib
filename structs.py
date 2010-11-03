@@ -309,7 +309,8 @@ class Struct(object):
             value, byte, bit = field.parse(seq, byte, bit)
             setattr(self, field.name, value)
         if byte != len(seq) or bit != 0:
-            raise ValidationError("%s" % (self.__class__,))
+            raise ValidationError("%s %s (%s %s)" % (self.__class__,
+                                                     len(seq), byte, bit))
 
     def adjust(self):
         return
@@ -480,9 +481,47 @@ class Type7(Struct):
         self.file.stars = self.num_stars
 
 
-# class Type6(Struct):
-#     """ Race data """
-#     type = 6
+class Type6(Struct):
+    """ Race data """
+    type = 6
+
+    player = Int(8)
+    num_ship_designs = Int(8)
+    planets_known = Int()
+    visible_fleets = Int(12)
+    station_designs = Int(4)
+    unknown1 = Int(2, value=3)
+    optional_section = Bool()
+    race_icon = Int(5)
+    really_unknown = Int(8)
+    # optional section
+    unknown2 = Int(32)
+    password_hash = Int(32)
+    mid_G = Int(8)
+    mid_T = Int(8)
+    mid_R = Int(8)
+    min_G = Int(8)
+    min_T = Int(8)
+    min_R = Int(8)
+    max_G = Int(8)
+    max_T = Int(8)
+    max_R = Int(8)
+    growth = Int(8)
+    # no idea yet
+    whatever = Int(36*8)
+    resources = Int(32)
+    mines = Int(24)
+    leftover = Int(8)
+    research = Int(48)
+    prt = Int()
+    srt = Int()
+    unknown3 = Int(8)
+    flags = Int(8)
+    # no idea yet
+    whatever2 = Int(31*8)
+    # end optional section
+    race_name = CStr(8)
+    plural_race_name = CStr(8)
 
 
 class Type45(Struct):
