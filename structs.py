@@ -481,6 +481,10 @@ class Type7(Struct):
         self.file.stars = self.num_stars
 
 
+def type6_trigger(field):
+    print type(field), type(field.struct)
+    return field.struct.optional_section
+
 class Type6(Struct):
     """ Race data """
     type = 6
@@ -495,28 +499,28 @@ class Type6(Struct):
     race_icon = Int(5)
     really_unknown = Int(8)
     # optional section
-    unknown2 = Int(32)
-    password_hash = Int(32)
-    mid_G = Int(8)
-    mid_T = Int(8)
-    mid_R = Int(8)
-    min_G = Int(8)
-    min_T = Int(8)
-    min_R = Int(8)
-    max_G = Int(8)
-    max_T = Int(8)
-    max_R = Int(8)
-    growth = Int(8)
+    unknown2 = Int(32, option=type6_trigger)
+    password_hash = Int(32, option=type6_trigger)
+    mid_G = Int(8, option=type6_trigger)
+    mid_T = Int(8, option=type6_trigger)
+    mid_R = Int(8, option=type6_trigger)
+    min_G = Int(8, option=type6_trigger)
+    min_T = Int(8, option=type6_trigger)
+    min_R = Int(8, option=type6_trigger)
+    max_G = Int(8, option=type6_trigger)
+    max_T = Int(8, option=type6_trigger)
+    max_R = Int(8, option=type6_trigger)
+    growth = Int(8, option=type6_trigger)
     # no idea yet
-    whatever = Int(36*8)
-    resources = Int(32)
-    mines = Int(24)
-    leftover = Int(8)
-    research = Int(48)
-    prt = Int()
-    srt = Int()
-    unknown3 = Int(8)
-    flags = Int(8)
+    whatever = Int(36*8, option=type6_trigger)
+    resources = Int(32, option=type6_trigger)
+    mines = Int(24, option=type6_trigger)
+    leftover = Int(8, option=type6_trigger)
+    research = Int(48, option=type6_trigger)
+    prt = Int(option=type6_trigger)
+    srt = Int(option=type6_trigger)
+    unknown3 = Int(8, option=type6_trigger)
+    flags = Int(8, option=type6_trigger)
     # no idea yet
     whatever2 = Int(31*8)
     # end optional section
