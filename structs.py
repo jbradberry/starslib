@@ -15,7 +15,7 @@ class Value(object):
     def __get__(self, obj, type=None):
         if obj is None:
             raise AttributeError
-        if self.field.option and not self.field.option(self.field):
+        if self.field.option and not self.field.option(obj):
             return None
         return obj.__dict__[self.field.name]
 
@@ -481,9 +481,8 @@ class Type7(Struct):
         self.file.stars = self.num_stars
 
 
-def type6_trigger(field):
-    print type(field), type(field.struct)
-    return field.struct.optional_section
+def type6_trigger(S):
+    return S.optional_section
 
 class Type6(Struct):
     """ Race data """
