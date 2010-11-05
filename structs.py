@@ -202,9 +202,11 @@ class CStr(Field):
             raise ValidationError
         realsize = sum(x<<(8*n) for n, x in
                        enumerate(seq[obj.byte:obj.byte+self.size//8]))
+        obj.byte += self.size // 8
         if realsize == 0:
             setattr(obj, self.name, '')
-        obj.byte += self.size // 8
+            obj.byte += 1
+            return
         if realsize > len(seq) - obj.byte:
             raise ValidationError
         result = self.decompress(seq[obj.byte:obj.byte+realsize])
