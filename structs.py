@@ -20,8 +20,8 @@ class Value(object):
         return obj.__dict__[self.field.name]
 
     def __set__(self, obj, value):
-        if not self.field.skip(value):
-            self.field.validate(value)
+        if not self.field.skip(obj, value):
+            self.field.validate(obj, value)
         value = self.field.clean(value)
         obj.__dict__[self.field.name] = value
 
@@ -67,65 +67,69 @@ class Field(object):
         self.struct = cls
         cls.fields.insert(bisect(cls.fields, self), self)
 
-    def parse(self, seq, byte, bit):
-        if byte >= len(seq):
-            if not self.append:
-                raise ValidationError("%s, %s" % (self.__class__, self.struct))
-            return None, byte, bit
+    def parse(self, obj, seq):
+        if obj.byte >= len(seq):
+            if not self.skip(obj):
+                raise ValidationError("%s.%s: %s" % (self.struct.__name__, self.name, seq))
+            setattr(obj, self.name, None)
+            return
         size = self.size
         result = 0
         try:
             acc_bit = 0
             while size > 0:
-                if size >= 8-bit:
-                    result += (seq[byte]>>bit) << acc_bit
-                    byte += 1
-                    acc_bit += 8-bit
-                    size -= 8-bit
-                    bit = 0
+                if size >= 8-obj.bit:
+                    result += (seq[obj.byte]>>obj.bit) << acc_bit
+                    obj.byte += 1
+                    acc_bit += 8-obj.bit
+                    size -= 8-obj.bit
+                    obj.bit = 0
                 else:
-                    result += ((seq[byte]>>bit) & (2**size-1)) << acc_bit
-                    bit += size
+                    result += ((seq[obj.byte]>>obj.bit)&(2**size-1)) << acc_bit
+                    obj.bit += size
                     size = 0
         except IndexError, e:
-            raise ValidationError("%s %s %s %s" % (self.struct, self.__class__, seq, byte))
-        return result, byte, bit
+            raise ValidationError("%s %s %s %s" % (self.struct, self.__class__, seq, obj.byte))
+        setattr(obj, self.name, result)
 
-    def deparse(self, value, prev=0, bit=0):
-        value = value << bit | prev
-        size = self.size + bit
+    def deparse(self, obj):
         extend = []
+        if self.skip(obj):
+            return extend
+        value = getattr(obj, self.name) << obj.bit | obj.prev
+        size = self.size + obj.bit
         while size >= 8:
             value, tmp, size = value >> 8, value & 0xff, size - 8
             extend.append(tmp)
-        return extend, value, size
+        obj.prev, obj.bit = value, size
+        return extend
 
     def clean(self, value):
         return value
 
-    def skip(self, value):
+    def skip(self, obj, value=None):
         if value is None:
             if self.append:
                 return True
-            if self.option and not self.option(self):
+            if self.option and not self.option(obj):
                 return True
         return False
 
-    def validate(self, value):
+    def validate(self, obj, value):
         if value is None:
             if self.option:
-                if self.option(self):
+                if self.option(obj):
                     raise ValidationError
                 return
             if not self.append:
                 raise ValidationError
         if self.value is not None and value != self.value:
-            raise ValidationError
+            raise ValidationError("%s: %s != %s" % (self.name, value, self.value))
 
 
 class Int(Field):
-    def validate(self, value):
-        super(Int, self).validate(value)
+    def validate(self, obj, value):
+        super(Int, self).validate(obj, value)
         if not isinstance(value, numbers.Integral):
             raise ValidationError("%s" % value)
         if self.max is not None and value > self.max:
@@ -149,26 +153,28 @@ class Str(Field):
         if self.size % 8 != 0:
             raise ValidationError
 
-    def validate(self, value):
-        super(Str, self).validate(value)
+    def validate(self, obj, value):
+        super(Str, self).validate(obj, value)
         if not isinstance(value, basestring):
             raise ValidationError
         if len(value) != self.size // 8:
             raise ValidationError("%s %s" % (value, self.size))
 
-    def parse(self, seq, byte, bit):
-        if bit != 0:
+    def parse(self, obj, seq):
+        if obj.bit != 0:
             raise ValidationError
-        if self.size > 8*(len(seq) - byte) - bit:
+        if self.size > 8*(len(seq) - obj.byte) - obj.bit:
             raise ValidationError
-        result = ''.join(map(chr, seq[byte:byte+self.size//8]))
-        byte += self.size // 8
-        return result, byte, bit
+        result = ''.join(map(chr, seq[obj.byte:obj.byte+self.size//8]))
+        obj.byte += self.size // 8
+        setattr(obj, self.name, result)
 
-    def deparse(self, value, prev=0, bit=0):
-        if bit != 0:
+    def deparse(self, obj):
+        if self.skip(obj):
+            return []
+        if obj.prev != 0 or obj.bit != 0:
             raise ValidationError
-        return tuple(map(ord, value)), 0, 0
+        return map(ord, getattr(obj, self.name))
 
 
 class CStr(Field):
@@ -180,32 +186,34 @@ class CStr(Field):
         if self.size % 8 != 0:
             raise ValidationError
 
-    def validate(self, value):
-        super(CStr, self).validate(value)
+    def validate(self, obj, value):
+        super(CStr, self).validate(obj, value)
         if not isinstance(value, basestring):
             raise ValidationError
 
-    def parse(self, seq, byte, bit):
-        if bit != 0:
+    def parse(self, obj, seq):
+        if obj.bit != 0:
             raise ValidationError
-        if self.size > 8*(len(seq) - byte):
+        if self.size > 8*(len(seq) - obj.byte):
             raise ValidationError
         realsize = sum(x<<(8*n) for n, x in
-                       enumerate(seq[byte:byte+self.size//8]))
-        byte += self.size // 8
-        if realsize > len(seq) - byte:
+                       enumerate(seq[obj.byte:obj.byte+self.size//8]))
+        obj.byte += self.size // 8
+        if realsize > len(seq) - obj.byte:
             raise ValidationError
-        result = self.decompress(seq[byte:byte+realsize])
-        byte += realsize
-        return result, byte, bit
+        result = self.decompress(seq[obj.byte:obj.byte+realsize])
+        obj.byte += realsize
+        setattr(obj, self.name, result)
 
-    def deparse(self, value, prev=0, bit=0):
-        if bit != 0:
+    def deparse(self, obj):
+        if self.skip(obj):
+            return []
+        if obj.prev != 0 or obj.bit != 0:
             raise ValidationError
-        S = tuple(self.compress(value))
+        S = self.compress(getattr(obj, self.name))
         L = len(S)
-        size = tuple(L>>(8*n) & 0xff for n in xrange(self.size//8))
-        return size + S, 0, 0
+        size = [L>>(8*n) & 0xff for n in xrange(self.size//8)]
+        return size + S
 
     def decompress(self, lst):
         tmp = ((x>>i) & 0xf for x in lst for i in (4,0))
@@ -293,24 +301,22 @@ class Struct(object):
 
     @property
     def bytes(self):
-        seq, prev, bit = [], 0, 0
+        seq, self.prev, self.bit = [], 0, 0
         for field in self.fields:
-            value = getattr(self, field.name)
-            extend, prev, bit = field.deparse(value, prev, bit)
-            seq.extend(extend)
-        if bit != 0 or prev != 0:
+            seq.extend(field.deparse(self))
+        if self.bit != 0 or self.prev != 0:
             raise ValidationError
         return tuple(seq)
 
     @bytes.setter
     def bytes(self, seq):
-        byte, bit = 0, 0
+        self.byte, self.bit = 0, 0
         for field in self.fields:
-            value, byte, bit = field.parse(seq, byte, bit)
-            setattr(self, field.name, value)
-        if byte != len(seq) or bit != 0:
+            field.parse(self, seq)
+        if self.byte != len(seq) or self.bit != 0:
             raise ValidationError("%s %s (%s %s)" % (self.__class__,
-                                                     len(seq), byte, bit))
+                                                     len(seq), self.byte,
+                                                     self.bit))
 
     def adjust(self):
         return
@@ -496,9 +502,9 @@ class Type6(Struct):
     unknown1 = Int(2, value=3)
     optional_section = Bool()
     race_icon = Int(5)
-    unknown2 = Int(8, value=0)
+    unknown2 = Int(8) # not const
     # optional section
-    unknown3 = Int(32, value=0, option=type6_trigger)
+    unknown3 = Int(32, option=type6_trigger) # not const
     password_hash = Int(32, option=type6_trigger)
     mid_G = Int(8, option=type6_trigger)
     mid_T = Int(8, option=type6_trigger)
