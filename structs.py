@@ -493,7 +493,7 @@ class Type8(Struct):
     multi_turn = Bool()
     gameover = Bool()
     shareware = Bool()
-    unused = Int(3, value=0)
+    unused = Int(3)
 
     def adjust(self):
         self.file.prng_init(self.game_id, self.turn, self.player,
