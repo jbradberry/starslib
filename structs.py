@@ -15,7 +15,7 @@ class Value(object):
     def __get__(self, obj, type=None):
         if obj is None:
             raise AttributeError
-        if self.field.option and not self.field.option(obj):
+        if self.field.skip(obj):
             return None
         return obj.__dict__[self.field.name]
 
@@ -68,11 +68,11 @@ class Field(object):
         cls.fields.insert(bisect(cls.fields, self), self)
 
     def parse(self, obj, seq):
-        if obj.byte >= len(seq):
-            if not self.skip(obj):
-                raise ValidationError("%s.%s: %s" % (self.struct.__name__, self.name, seq))
+        if self.skip(obj):
             setattr(obj, self.name, None)
             return
+        if obj.byte >= len(seq):
+            raise ValidationError("%s.%s: %s" % (self.struct.__name__, self.name, seq))
         size = self.size
         result = 0
         try:
@@ -195,9 +195,11 @@ class CStr(Field):
         if obj.bit != 0:
             raise ValidationError
         if self.size > 8*(len(seq) - obj.byte):
-            raise ValidationError
+            raise ValidationError("%s: %s > %s" % (self.name, self.size, len(seq) - obj.byte))
         realsize = sum(x<<(8*n) for n, x in
                        enumerate(seq[obj.byte:obj.byte+self.size//8]))
+        if realsize == 0:
+            setattr(obj, self.name, '')
         obj.byte += self.size // 8
         if realsize > len(seq) - obj.byte:
             raise ValidationError
@@ -313,10 +315,11 @@ class Struct(object):
         self.byte, self.bit = 0, 0
         for field in self.fields:
             field.parse(self, seq)
+            print field.name, self.byte, getattr(self, field.name)
         if self.byte != len(seq) or self.bit != 0:
-            raise ValidationError("%s %s (%s %s)" % (self.__class__,
+            raise ValidationError("%s %s (%s %s) %s" % (self.__class__.__name__,
                                                      len(seq), self.byte,
-                                                     self.bit))
+                                                     self.bit, seq))
 
     def adjust(self):
         return
@@ -469,22 +472,22 @@ class Type8(Struct):
                             self.salt, self.shareware)
 
 
-class Type7(Struct):
-    """ Game definition """
-    type = 7
+# class Type7(Struct):
+#     """ Game definition """
+#     type = 7
 
-    game_id = Int(32)
-    size = Int()
-    density = Int()
-    num_players = Int()
-    num_stars = Int()
-    start_distance = Int()
-    unknown1 = Int()
-    flags1 = Int(8)
-    unknown2 = Int(24)
+#     game_id = Int(32)
+#     size = Int()
+#     density = Int()
+#     num_players = Int()
+#     num_stars = Int()
+#     start_distance = Int()
+#     unknown1 = Int()
+#     flags1 = Int(8)
+#     unknown2 = Int(24)
 
-    def adjust(self):
-        self.file.stars = self.num_stars
+#     def adjust(self):
+#         self.file.stars = self.num_stars
 
 
 def type6_trigger(S):
@@ -516,8 +519,14 @@ class Type6(Struct):
     max_T = Int(8, option=type6_trigger)
     max_R = Int(8, option=type6_trigger)
     growth = Int(8, option=type6_trigger)
+    cur_energy = Int(8, option=type6_trigger)
+    cur_weapons = Int(8, option=type6_trigger)
+    cur_propulsion = Int(8, option=type6_trigger)
+    cur_construction = Int(8, option=type6_trigger)
+    cur_electronics = Int(8, option=type6_trigger)
+    cur_biotech = Int(8, option=type6_trigger)
     # no idea yet
-    whatever = Int(36*8, option=type6_trigger)
+    whatever = Int(30*8, option=type6_trigger)
     col_per_res = Int(8, option=type6_trigger)
     res_per_10f = Int(8, option=type6_trigger)
     f_build_res = Int(8, option=type6_trigger)
@@ -558,106 +567,106 @@ class Type6(Struct):
     f7 = Bool(option=type6_trigger)
     f_1kTlessGe = Bool(option=type6_trigger)
     # no idea yet
-    whatever2 = Int(31*8)
+    whatever2 = Int(31*8, option=type6_trigger)
     # end optional section
     race_name = CStr(8)
     plural_race_name = CStr(8)
 
 
-class Type45(Struct):
-    """ Score data """
-    type = 45
+# class Type45(Struct):
+#     """ Score data """
+#     type = 45
 
-    player = Int(5)
-    unknown1 = Bool(value=True) # rare False?
-    f_owns_planets = Bool()
-    f_attains_tech = Bool()
-    f_exceeds_score = Bool()
-    f_exceeds_2nd = Bool()
-    f_production = Bool()
-    f_cap_ships = Bool()
-    f_high_score = Bool()
-    unknown2 = Bool(value=False) # rare True?
-    f_declared_winner = Bool()
-    unknown3 = Bool()
-    year = Int()
-    score = Int(32)
-    resources = Int(32)
-    planets = Int()
-    starbases = Int()
-    unarmed_ships = Int()
-    escort_ships = Int()
-    capital_ships = Int()
-    tech_levels = Int()
-
-
-class Type20(Struct):
-    """ Waypoint - Server """
-    type = 20
-
-    x = Int()
-    y = Int()
-    planet_id = Int()
-    unknown1 = Int(4)
-    warp = Int(4)
-    unknown2 = Int(8)
+#     player = Int(5)
+#     unknown1 = Bool(value=True) # rare False?
+#     f_owns_planets = Bool()
+#     f_attains_tech = Bool()
+#     f_exceeds_score = Bool()
+#     f_exceeds_2nd = Bool()
+#     f_production = Bool()
+#     f_cap_ships = Bool()
+#     f_high_score = Bool()
+#     unknown2 = Bool(value=False) # rare True?
+#     f_declared_winner = Bool()
+#     unknown3 = Bool()
+#     year = Int()
+#     score = Int(32)
+#     resources = Int(32)
+#     planets = Int()
+#     starbases = Int()
+#     unarmed_ships = Int()
+#     escort_ships = Int()
+#     capital_ships = Int()
+#     tech_levels = Int()
 
 
-class Type30(Struct):
-    """ Battle plans """
-    type = 30
+# class Type20(Struct):
+#     """ Waypoint - Server """
+#     type = 20
 
-    u1 = Int(8)
-    u2 = Int(8)
-    u3 = Int(8)
-    u4 = Int(8)
-    name = CStr()
-
-
-class Type40(Struct):
-    """ In-game messages """
-    type = 40
-
-    unknown1 = Int(32)
-    sender_id = Int(8)
-    unknown2 = Int(40)
-    text = CStr(16)
+#     x = Int()
+#     y = Int()
+#     planet_id = Int()
+#     unknown1 = Int(4)
+#     warp = Int(4)
+#     unknown2 = Int(8)
 
 
-class Type17(Struct):
-    """ Alien fleets """
-    type = 17
+# class Type30(Struct):
+#     """ Battle plans """
+#     type = 30
 
-    ship_id = Int(8)
-    unknown1 = Int(8)
-    player_id = Int(8)
-    unknown2 = Int(40)
-    x = Int()
-    y = Int()
-    unknown3 = Int(56)
-    mass = Int(32)
+#     u1 = Int(8)
+#     u2 = Int(8)
+#     u3 = Int(8)
+#     u4 = Int(8)
+#     name = CStr()
 
 
-class Type43(Struct):
-    """ Mass packets """
-    type = 43
+# class Type40(Struct):
+#     """ In-game messages """
+#     type = 40
 
-    # optional sizes: 2, 4, and 18
-    unknown1 = Int()
-    x = Int()
-    y = Int()
-    unknown2 = Int()
-    mass_ir = Int()
-    mass_bo = Int()
-    mass_ge = Int()
-    unknown3 = Int(32)
+#     unknown1 = Int(32)
+#     sender_id = Int(8)
+#     unknown2 = Int(40)
+#     text = CStr(16)
 
 
-class Type3(Struct):
-    """ Delete waypoint """
-    type = 3
+# class Type17(Struct):
+#     """ Alien fleets """
+#     type = 17
 
-    fleet_id = Int(9)
-    unknown1 = Int(7)
-    sequence_num = Int(8)
-    unknown2 = Int(8)
+#     ship_id = Int(8)
+#     unknown1 = Int(8)
+#     player_id = Int(8)
+#     unknown2 = Int(40)
+#     x = Int()
+#     y = Int()
+#     unknown3 = Int(56)
+#     mass = Int(32)
+
+
+# class Type43(Struct):
+#     """ Mass packets """
+#     type = 43
+
+#     # optional sizes: 2, 4, and 18
+#     unknown1 = Int()
+#     x = Int()
+#     y = Int()
+#     unknown2 = Int()
+#     mass_ir = Int()
+#     mass_bo = Int()
+#     mass_ge = Int()
+#     unknown3 = Int(32)
+
+
+# class Type3(Struct):
+#     """ Delete waypoint """
+#     type = 3
+
+#     fleet_id = Int(9)
+#     unknown1 = Int(7)
+#     sequence_num = Int(8)
+#     unknown2 = Int(8)
