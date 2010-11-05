@@ -109,7 +109,7 @@ class Field(object):
 
     def skip(self, obj, value=None):
         if value is None:
-            if self.append:
+            if self.append and obj.byte >= obj.length:
                 return True
             if self.option and not self.option(obj):
                 return True
@@ -161,9 +161,12 @@ class Str(Field):
             raise ValidationError("%s %s" % (value, self.size))
 
     def parse(self, obj, seq):
+        if self.skip(obj):
+            setattr(obj, self.name, None)
+            return
         if obj.bit != 0:
             raise ValidationError
-        if self.size > 8*(len(seq) - obj.byte) - obj.bit:
+        if self.size > 8*(len(seq) - obj.byte):
             raise ValidationError
         result = ''.join(map(chr, seq[obj.byte:obj.byte+self.size//8]))
         obj.byte += self.size // 8
@@ -192,10 +195,11 @@ class CStr(Field):
             raise ValidationError
 
     def parse(self, obj, seq):
+        if self.skip(obj):
+            setattr(obj, self.name, None)
+            return
         if obj.bit != 0:
             raise ValidationError
-        if self.size > 8*(len(seq) - obj.byte):
-            raise ValidationError("%s: %s > %s" % (self.name, self.size, len(seq) - obj.byte))
         realsize = sum(x<<(8*n) for n, x in
                        enumerate(seq[obj.byte:obj.byte+self.size//8]))
         if realsize == 0:
@@ -312,10 +316,10 @@ class Struct(object):
 
     @bytes.setter
     def bytes(self, seq):
-        self.byte, self.bit = 0, 0
+        self.byte, self.bit, self.length = 0, 0, len(seq)
         for field in self.fields:
             field.parse(self, seq)
-            print field.name, self.byte, getattr(self, field.name)
+            #print field.name, self.byte, getattr(self, field.name)
         if self.byte != len(seq) or self.bit != 0:
             raise ValidationError("%s %s (%s %s) %s" % (self.__class__.__name__,
                                                      len(seq), self.byte,
