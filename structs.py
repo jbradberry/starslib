@@ -266,6 +266,30 @@ class CStr(Field):
         return [(result[i]<<4)+result[i+1] for i in xrange(0, len(result), 2)]
 
 
+class Array(Field):
+    def __init__(self, size=8, **kwargs):
+        kwargs.update(size=size)
+        super(Array, self).__init__(**kwargs)
+
+    def parse(self, obj, seq):
+        if self.skip(obj):
+            setattr(obj, self.name, None)
+            return
+        if obj.bit != 0:
+            raise ValidationError
+        realsize = sum(x<<(8*n) for n, x in
+                       enumerate(seq[obj.byte:obj.byte+self.size//8]))
+        if realsize > len(seq) - obj.byte:
+            raise ValidationError
+        obj.byte += self.size // 8
+        result = tuple(seq[obj.byte:obj.byte+realsize])
+        obj.byte += realsize
+        setattr(obj, self.name, result)
+
+    def deparse(self, obj):
+        pass
+
+
 class StructBase(type):
     def __new__(cls, name, bases, attrs):
         super_new = super(StructBase, cls).__new__
@@ -571,7 +595,8 @@ class Type6(Struct):
     f7 = Bool(option=type6_trigger)
     f_1kTlessGe = Bool(option=type6_trigger)
     # no idea yet
-    whatever2 = Int(31*8, option=type6_trigger)
+    whatever2 = Int(30*8, option=type6_trigger)
+    unknown5 = Array(8, option=type6_trigger)
     # end optional section
     race_name = CStr(8)
     plural_race_name = CStr(8)
