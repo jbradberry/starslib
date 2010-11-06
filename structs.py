@@ -502,22 +502,34 @@ class Type8(Struct):
                             self.salt, self.shareware)
 
 
-# class Type7(Struct):
-#     """ Game definition """
-#     type = 7
+class Type7(Struct):
+    """ Game definition """
+    type = 7
 
-#     game_id = Int(32)
-#     size = Int()
-#     density = Int()
-#     num_players = Int()
-#     num_stars = Int()
-#     start_distance = Int()
-#     unknown1 = Int()
-#     flags1 = Int(8)
-#     unknown2 = Int(24)
+    game_id = Int(32)
+    size = Int()
+    density = Int()
+    num_players = Int()
+    num_stars = Int()
+    start_distance = Int()
+    unknown1 = Int()
+    flags1 = Int(8)
+    unknown2 = Int(24)
+    req_pct_planets_owned = Int(8)
+    req_tech_level = Int(8)
+    req_tech_num_fields = Int(8)
+    req_exceeds_score = Int(8)
+    req_pct_exceeds_2nd = Int(8)
+    req_exceeds_prod = Int(8)
+    req_capships = Int(8)
+    req_highscore_year = Int(8)
+    req_num_criteria = Int(8)
+    year_declared = Int(8)
+    unknown3 = Int()
+    game_name = Str(32*8)
 
-#     def adjust(self):
-#         self.file.stars = self.num_stars
+    def adjust(self):
+        self.file.stars = self.num_stars
 
 
 def type6_trigger(S):
@@ -535,7 +547,7 @@ class Type6(Struct):
     unknown1 = Int(2, value=3)
     optional_section = Bool()
     race_icon = Int(5)
-    unknown2 = Int(8) # not const
+    unknown2 = Int(8) # 227 is computer control
     # optional section
     unknown3 = Int(32, option=type6_trigger) # not const
     password_hash = Int(32, option=type6_trigger)
@@ -604,31 +616,31 @@ class Type6(Struct):
     plural_race_name = CStr(8)
 
 
-# class Type45(Struct):
-#     """ Score data """
-#     type = 45
+class Type45(Struct):
+    """ Score data """
+    type = 45
 
-#     player = Int(5)
-#     unknown1 = Bool(value=True) # rare False?
-#     f_owns_planets = Bool()
-#     f_attains_tech = Bool()
-#     f_exceeds_score = Bool()
-#     f_exceeds_2nd = Bool()
-#     f_production = Bool()
-#     f_cap_ships = Bool()
-#     f_high_score = Bool()
-#     unknown2 = Bool(value=False) # rare True?
-#     f_declared_winner = Bool()
-#     unknown3 = Bool()
-#     year = Int()
-#     score = Int(32)
-#     resources = Int(32)
-#     planets = Int()
-#     starbases = Int()
-#     unarmed_ships = Int()
-#     escort_ships = Int()
-#     capital_ships = Int()
-#     tech_levels = Int()
+    player = Int(5)
+    unknown1 = Bool(value=True) # rare False?
+    f_owns_planets = Bool()
+    f_attains_tech = Bool()
+    f_exceeds_score = Bool()
+    f_exceeds_2nd = Bool()
+    f_production = Bool()
+    f_cap_ships = Bool()
+    f_high_score = Bool()
+    unknown2 = Bool(value=False) # rare True?
+    f_declared_winner = Bool()
+    unknown3 = Bool()
+    year = Int()
+    score = Int(32)
+    resources = Int(32)
+    planets = Int()
+    starbases = Int()
+    unarmed_ships = Int()
+    escort_ships = Int()
+    capital_ships = Int()
+    tech_levels = Int()
 
 
 # class Type20(Struct):
