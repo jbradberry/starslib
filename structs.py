@@ -638,7 +638,7 @@ class Type45(Struct):
     unknown2 = Bool(value=False) # rare True?
     f_declared_winner = Bool()
     unknown3 = Bool()
-    year = Int()
+    year = Int() # or rank in .m files
     score = Int(32)
     resources = Int(32)
     planets = Int()
