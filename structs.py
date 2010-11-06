@@ -289,7 +289,13 @@ class Array(Field):
         setattr(obj, self.name, result)
 
     def deparse(self, obj):
-        pass
+        if self.skip(obj):
+            return ()
+        if obj.prev != 0 or obj.bit != 0:
+            raise ValidationError
+        value = getattr(obj, self.name)
+        L = len(value)
+        return tuple((L>>(8*n)) & 0xff for n in xrange(self.size//8)) + value
 
 
 class StructBase(type):
