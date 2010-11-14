@@ -73,7 +73,9 @@ class Field(object):
             raise ValidationError("%s.%s: %s" % (self.struct.__name__, self.name, seq))
         size = self.size
         if isinstance(size, basestring):
-            size = 8 * getattr(obj, size)
+            size = getattr(obj, size)
+            size = size if size < 3 else 4
+            size *= 8
         result = 0
         try:
             acc_bit = 0
@@ -89,7 +91,7 @@ class Field(object):
                     obj.bit += size
                     size = 0
         except IndexError, e:
-            raise ValidationError("%s %s %s %s" % (self.struct, self.__class__, seq, obj.byte))
+            raise ValidationError("%s %s: %s > %s" % (self.struct.__name__, seq, obj.byte, len(seq)))
         setattr(obj, self.name, result)
 
     def deparse(self, obj):
@@ -99,7 +101,9 @@ class Field(object):
         value = getattr(obj, self.name) << obj.bit | obj.prev
         size = self.size
         if isinstance(size, basestring):
-            size = 8 * getattr(obj, size)
+            size = getattr(obj, size)
+            size = size if size < 3 else 4
+            size *= 8
         size += obj.bit
         while size >= 8:
             value, tmp, size = value >> 8, value & 0xff, size - 8
@@ -152,6 +156,7 @@ class Int(Field):
                 if value is not None:
                     raise ValidationError("%s: %s" % (self.name, value))
                 return
+            size = size if size < 3 else 4
             size *= 8
         if not 0 <= value < 2**size:
             raise ValidationError
@@ -668,54 +673,54 @@ class Type45(Struct):
     tech_levels = Int()
 
 
-# class Type13(Struct):
-#     """ Planet - Server """
-#     type = 13
+class Type13(Struct):
+    """ Fully Scanned? Planet """
+    type = 13
 
-#     planet_id = Int(11, max=998)
-#     player = Int(5)
-#     const7 = Int(3, value=7)
-#     unknown1 = Int(5) # includes HW flag
-#     f0 = Bool(value=True)
-#     station = Bool()
-#     terraformed = Bool()
-#     facilities = Bool()
-#     artifact = Bool()
-#     surface_min = Bool()
-#     f6 = Bool()
-#     f7 = Bool()
-#     s1 = Int(2, max=1)
-#     s2 = Int(2, max=1)
-#     s3 = Int(4, max=1)
-#     frac_ir_conc = Int('s1')
-#     frac_bo_conc = Int('s2')
-#     frac_ge_conc = Int('s3')
-#     ir_conc = Int(8)
-#     bo_conc = Int(8)
-#     ge_conc = Int(8)
-#     grav = Int(8)
-#     temp = Int(8)
-#     rad = Int(8)
-#     grav_orig = Int(8, option=lambda s: s.terraformed)
-#     temp_orig = Int(8, option=lambda s: s.terraformed)
-#     rad_orig = Int(8, option=lambda s: s.terraformed)
-#     unknown2 = Int(option=lambda s: s.player < 16)
-#     s4 = Int(2, option=lambda s: s.surface_min or s.player < 16)
-#     s5 = Int(2, option=lambda s: s.surface_min or s.player < 16)
-#     s6 = Int(2, option=lambda s: s.surface_min or s.player < 16)
-#     s7 = Int(2, option=lambda s: s.surface_min or s.player < 16)
-#     ir_surf = Int('s4')
-#     bo_surf = Int('s5')
-#     ge_surf = Int('s6')
-#     population = Int('s7') # times 100
-#     frac_population = Int(8, max=99, append=True)
-#     mines = Int(12, option=lambda s: s.facilities)
-#     factories = Int(12, option=lambda s: s.facilities)
-#     defenses = Int(8, option=lambda s: s.facilities)
-#     unknown3 = Int(24, option=lambda s: s.facilities)
-#     station_design = Int(5, max=9, option=lambda s: s.station)
-#     station_flags = Int(27, option=lambda s: s.station)
-#     routing_dest = Int(append=True)
+    planet_id = Int(11, max=998)
+    player = Int(5)
+    const7 = Int(3, value=7)
+    unknown1 = Int(5) # includes HW flag
+    f0 = Bool(value=True)
+    station = Bool()
+    terraformed = Bool()
+    facilities = Bool() # turns on 8 bytes; rename
+    artifact = Bool()
+    surface_min = Bool()
+    routing = Bool() # turns on 2 bytes
+    f7 = Bool()
+    s1 = Int(2, max=1)
+    s2 = Int(2, max=1)
+    s3 = Int(4, max=1)
+    frac_ir_conc = Int('s1')
+    frac_bo_conc = Int('s2')
+    frac_ge_conc = Int('s3')
+    ir_conc = Int(8)
+    bo_conc = Int(8)
+    ge_conc = Int(8)
+    grav = Int(8)
+    temp = Int(8)
+    rad = Int(8)
+    grav_orig = Int(8, option=lambda s: s.terraformed)
+    temp_orig = Int(8, option=lambda s: s.terraformed)
+    rad_orig = Int(8, option=lambda s: s.terraformed)
+    unknown2 = Int(option=lambda s: s.player < 16)
+    s4 = Int(2, option=lambda s: s.surface_min or s.unknown2)
+    s5 = Int(2, option=lambda s: s.surface_min or s.unknown2)
+    s6 = Int(2, option=lambda s: s.surface_min or s.unknown2)
+    s7 = Int(2, option=lambda s: s.surface_min or s.unknown2)
+    ir_surf = Int('s4')
+    bo_surf = Int('s5')
+    ge_surf = Int('s6')
+    population = Int('s7') # times 100
+    frac_population = Int(8, max=99, option=lambda s: s.facilities)
+    mines = Int(12, option=lambda s: s.facilities)
+    factories = Int(12, option=lambda s: s.facilities)
+    defenses = Int(8, option=lambda s: s.facilities)
+    unknown3 = Int(24, option=lambda s: s.facilities)
+    station_design = Int(4, max=9, option=lambda s: s.station)
+    station_flags = Int(28, option=lambda s: s.station)
+    routing_dest = Int(option=lambda s: s.routing and s.player < 16)
 
 
 # class Type20(Struct):
