@@ -15,8 +15,6 @@ class Value(object):
     def __get__(self, obj, type=None):
         if obj is None:
             raise AttributeError
-        if self.field.skip(obj):
-            return None
         return obj.__dict__[self.field.name]
 
     def __set__(self, obj, value):
@@ -74,6 +72,8 @@ class Field(object):
         if obj.byte >= len(seq):
             raise ValidationError("%s.%s: %s" % (self.struct.__name__, self.name, seq))
         size = self.size
+        if isinstance(size, basestring):
+            size = 8 * getattr(obj, size)
         result = 0
         try:
             acc_bit = 0
@@ -97,7 +97,10 @@ class Field(object):
         if self.skip(obj):
             return extend
         value = getattr(obj, self.name) << obj.bit | obj.prev
-        size = self.size + obj.bit
+        size = self.size
+        if isinstance(size, basestring):
+            size = 8 * getattr(obj, size)
+        size += obj.bit
         while size >= 8:
             value, tmp, size = value >> 8, value & 0xff, size - 8
             extend.append(tmp)
@@ -113,12 +116,20 @@ class Field(object):
                 return True
             if self.option and not self.option(obj):
                 return True
+            if isinstance(self.size, basestring):
+                size = getattr(obj, self.size)
+                if size is None or size == 0:
+                    return True
         return False
 
     def validate(self, obj, value):
         if value is None:
             if self.option:
                 if self.option(obj):
+                    raise ValidationError
+                return
+            if isinstance(self.size, basestring):
+                if getattr(obj, self.size) != 0:
                     raise ValidationError
                 return
             if not self.append:
@@ -133,8 +144,16 @@ class Int(Field):
         if not isinstance(value, numbers.Integral):
             raise ValidationError("%s" % value)
         if self.max is not None and value > self.max:
-            raise ValidationError
-        if not 0 <= value < 2**self.size:
+            raise ValidationError("%s: %s > %s" % (self.name, value, self.max))
+        size = self.size
+        if isinstance(size, basestring):
+            size = getattr(obj, size)
+            if size is None or size == 0:
+                if value is not None:
+                    raise ValidationError("%s: %s" % (self.name, value))
+                return
+            size *= 8
+        if not 0 <= value < 2**size:
             raise ValidationError
 
 
@@ -441,12 +460,12 @@ class StarsFile(object):
                 index += 2
 
             S = self.dispatch(stype)
+            self.structs.append(S)
             buf = struct.unpack("%dB" % size, data[index:index+size])
             if S.encrypted:
                 buf = self.crypt(buf)
             S.bytes = buf
             S.adjust()
-            self.structs.append(S)
             index += size
 
     def dispatch(self, stype):
@@ -647,6 +666,56 @@ class Type45(Struct):
     escort_ships = Int()
     capital_ships = Int()
     tech_levels = Int()
+
+
+# class Type13(Struct):
+#     """ Planet - Server """
+#     type = 13
+
+#     planet_id = Int(11, max=998)
+#     player = Int(5)
+#     const7 = Int(3, value=7)
+#     unknown1 = Int(5) # includes HW flag
+#     f0 = Bool(value=True)
+#     station = Bool()
+#     terraformed = Bool()
+#     facilities = Bool()
+#     artifact = Bool()
+#     surface_min = Bool()
+#     f6 = Bool()
+#     f7 = Bool()
+#     s1 = Int(2, max=1)
+#     s2 = Int(2, max=1)
+#     s3 = Int(4, max=1)
+#     frac_ir_conc = Int('s1')
+#     frac_bo_conc = Int('s2')
+#     frac_ge_conc = Int('s3')
+#     ir_conc = Int(8)
+#     bo_conc = Int(8)
+#     ge_conc = Int(8)
+#     grav = Int(8)
+#     temp = Int(8)
+#     rad = Int(8)
+#     grav_orig = Int(8, option=lambda s: s.terraformed)
+#     temp_orig = Int(8, option=lambda s: s.terraformed)
+#     rad_orig = Int(8, option=lambda s: s.terraformed)
+#     unknown2 = Int(option=lambda s: s.player < 16)
+#     s4 = Int(2, option=lambda s: s.surface_min or s.player < 16)
+#     s5 = Int(2, option=lambda s: s.surface_min or s.player < 16)
+#     s6 = Int(2, option=lambda s: s.surface_min or s.player < 16)
+#     s7 = Int(2, option=lambda s: s.surface_min or s.player < 16)
+#     ir_surf = Int('s4')
+#     bo_surf = Int('s5')
+#     ge_surf = Int('s6')
+#     population = Int('s7') # times 100
+#     frac_population = Int(8, max=99, append=True)
+#     mines = Int(12, option=lambda s: s.facilities)
+#     factories = Int(12, option=lambda s: s.facilities)
+#     defenses = Int(8, option=lambda s: s.facilities)
+#     unknown3 = Int(24, option=lambda s: s.facilities)
+#     station_design = Int(5, max=9, option=lambda s: s.station)
+#     station_flags = Int(27, option=lambda s: s.station)
+#     routing_dest = Int(append=True)
 
 
 # class Type20(Struct):
