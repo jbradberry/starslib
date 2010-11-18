@@ -47,15 +47,13 @@ class Field(object):
     __metaclass__ = FieldBase
 
     counter = 0
-    def __init__(self, size=16, value=None, max=None, option=None,
-                 append=False, **kwargs):
+    def __init__(self, size=16, value=None, max=None, option=None, **kwargs):
         self._counter = Field.counter
         Field.counter += 1
         self.size = size
         self.value = value
         self.max = max
         self.option = option
-        self.append = append
 
     def __cmp__(self, other):
         return cmp(self._counter, other._counter)
@@ -116,8 +114,6 @@ class Field(object):
 
     def skip(self, obj, value=None):
         if value is None:
-            if self.append and obj.byte >= obj.length:
-                return True
             if self.option and not self.option(obj):
                 return True
             if isinstance(self.size, basestring):
@@ -136,8 +132,7 @@ class Field(object):
                 if getattr(obj, self.size) != 0:
                     raise ValidationError
                 return
-            if not self.append:
-                raise ValidationError
+            raise ValidationError
         if self.value is not None and value != self.value:
             raise ValidationError("%s: %s != %s" % (self.name, value, self.value))
 
@@ -481,6 +476,14 @@ class StarsFile(object):
         return instance
 
 
+ftypes = ('xy', 'x', 'hst', 'm', 'h', 'r')
+
+def filetypes(*args):
+    def ftype_check(s):
+        return s.file.type in args
+    return ftype_check
+
+
 class FakeStruct(Struct):
     bytes = None
 
@@ -505,7 +508,7 @@ class Type0(Struct):
     type = 0
     encrypted = False
 
-    info = Int(append=True)
+    info = Int(option=filetypes('hst', 'xy', 'm'))
 
 
 class Type8(Struct):
@@ -530,6 +533,7 @@ class Type8(Struct):
     def adjust(self):
         self.file.prng_init(self.game_id, self.turn, self.player,
                             self.salt, self.shareware)
+        self.file.type = ftypes[self.filetype]
 
 
 class Type7(Struct):
