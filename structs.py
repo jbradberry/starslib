@@ -678,13 +678,16 @@ class Type45(Struct):
 
 
 class Type13(Struct):
-    """ Fully Scanned? Planet """
+    """ Definitive Planet """
     type = 13
 
     planet_id = Int(11, max=998)
     player = Int(5)
-    const7 = Int(3, value=7)
-    unknown1 = Int(5) # includes HW flag
+    low_info = Bool(value=True) # add station design, if relevant
+    med_info = Bool(value=True) # add minerals & hab
+    full_info = Bool(value=True) # add real pop & structures
+    const = Int(4, value=0)
+    homeworld = Bool()
     f0 = Bool(value=True)
     station = Bool()
     terraformed = Bool()
@@ -708,11 +711,12 @@ class Type13(Struct):
     grav_orig = Int(8, option=lambda s: s.terraformed)
     temp_orig = Int(8, option=lambda s: s.terraformed)
     rad_orig = Int(8, option=lambda s: s.terraformed)
-    unknown2 = Int(option=lambda s: s.player < 16)
-    s4 = Int(2, option=lambda s: s.surface_min or s.unknown2)
-    s5 = Int(2, option=lambda s: s.surface_min or s.unknown2)
-    s6 = Int(2, option=lambda s: s.surface_min or s.unknown2)
-    s7 = Int(2, option=lambda s: s.surface_min or s.unknown2)
+    apparent_pop = Int(12, option=lambda s: s.player < 16) # times 400
+    apparent_defense = Int(4, option=lambda s: s.player < 16)
+    s4 = Int(2, option=lambda s: s.surface_min)
+    s5 = Int(2, option=lambda s: s.surface_min)
+    s6 = Int(2, option=lambda s: s.surface_min)
+    s7 = Int(2, option=lambda s: s.surface_min)
     ir_surf = Int('s4')
     bo_surf = Int('s5')
     ge_surf = Int('s6')
@@ -725,6 +729,58 @@ class Type13(Struct):
     station_design = Int(4, max=9, option=lambda s: s.station)
     station_flags = Int(28, option=lambda s: s.station)
     routing_dest = Int(option=lambda s: s.routing and s.player < 16)
+
+
+class Type14(Struct):
+    """ Scanned Planet """
+    type = 14
+
+    planet_id = Int(11, max=998)
+    player = Int(5)
+    low_info = Bool() # add station design, if relevant
+    med_info = Bool() # add minerals & hab
+    full_info = Bool() # add real pop & structures
+    const = Int(4, value=0)
+    homeworld = Bool()
+    f0 = Bool(value=True)
+    station = Bool()
+    terraformed = Bool()
+    facilities = Bool(value=False) # turns on 8 bytes; rename
+    artifact = Bool()
+    surface_min = Bool()
+    routing = Bool() # turns on 2 bytes
+    f7 = Bool()
+    s1 = Int(2, max=1, option=lambda s: s.med_info or s.full_info)
+    s2 = Int(2, max=1, option=lambda s: s.med_info or s.full_info)
+    s3 = Int(4, max=1, option=lambda s: s.med_info or s.full_info)
+    frac_ir_conc = Int('s1')
+    frac_bo_conc = Int('s2')
+    frac_ge_conc = Int('s3')
+    ir_conc = Int(8, option=lambda s: s.med_info or s.full_info)
+    bo_conc = Int(8, option=lambda s: s.med_info or s.full_info)
+    ge_conc = Int(8, option=lambda s: s.med_info or s.full_info)
+    grav = Int(8, option=lambda s: s.med_info or s.full_info)
+    temp = Int(8, option=lambda s: s.med_info or s.full_info)
+    rad = Int(8, option=lambda s: s.med_info or s.full_info)
+    grav_orig = Int(8, option=lambda s:
+                        (s.med_info or s.full_info) and s.terraformed)
+    temp_orig = Int(8, option=lambda s:
+                        (s.med_info or s.full_info) and s.terraformed)
+    rad_orig = Int(8, option=lambda s:
+                        (s.med_info or s.full_info) and s.terraformed)
+    apparent_pop = Int(12, option=lambda s: # times 400
+                           (s.med_info or s.full_info) and s.player < 16)
+    apparent_defense = Int(4, option=lambda s:
+                               (s.med_info or s.full_info) and s.player < 16)
+    s4 = Int(2, option=lambda s: s.full_info and s.surface_min)
+    s5 = Int(2, option=lambda s: s.full_info and s.surface_min)
+    s6 = Int(2, option=lambda s: s.full_info and s.surface_min)
+    s7 = Int(2, option=lambda s: s.full_info and s.surface_min)
+    ir_surf = Int('s4')
+    bo_surf = Int('s5')
+    ge_surf = Int('s6')
+    station_design = Int(8, max=9, option=lambda s: s.station)
+    last_scanned = Int(option=filetypes('h'))
 
 
 # class Type20(Struct):
