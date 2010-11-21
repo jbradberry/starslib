@@ -288,9 +288,11 @@ class CStr(Field):
 
 
 class Array(Field):
-    def __init__(self, size=8, **kwargs):
+    def __init__(self, head=8, size=8, length=None, **kwargs):
         kwargs.update(size=size)
         super(Array, self).__init__(**kwargs)
+        self.head = head
+        self.length = length
 
     def parse(self, obj, seq):
         if self.skip(obj):
@@ -298,13 +300,18 @@ class Array(Field):
             return
         if obj.bit != 0:
             raise ValidationError
-        realsize = sum(x<<(8*n) for n, x in
-                       enumerate(seq[obj.byte:obj.byte+self.size//8]))
-        if realsize > len(seq) - obj.byte:
+        if self.length is None:
+            reallength = sum(x<<(8*n) for n, x in
+                             enumerate(seq[obj.byte:obj.byte+self.head//8]))
+            obj.byte += self.head // 8
+        elif callable(self.length):
+            reallength = self.length(obj)
+        else:
+            reallength = self.length
+        if reallength * self.size//8 > len(seq) - obj.byte:
             raise ValidationError
-        obj.byte += self.size // 8
-        result = tuple(seq[obj.byte:obj.byte+realsize])
-        obj.byte += realsize
+        result = tuple(seq[obj.byte:obj.byte + reallength*self.size//8])
+        obj.byte += reallength * self.size//8
         setattr(obj, self.name, result)
 
     def deparse(self, obj):
@@ -314,7 +321,24 @@ class Array(Field):
             raise ValidationError
         value = getattr(obj, self.name)
         L = len(value)
-        return tuple((L>>(8*n)) & 0xff for n in xrange(self.size//8)) + value
+        if self.length is None:
+            value = tuple((L>>(8*n)) & 0xff
+                          for n in xrange(self.head//8)) + value
+        return value
+
+    def validate(self, obj, value):
+        super(Array, self).validate(obj, value)
+        if not all(0 <= x < 2**self.size for x in value):
+            raise ValidationError
+        if self.length is None:
+            if not 0 <= len(value) < 2**self.head:
+                raise ValidationError
+        elif callable(self.length):
+            if len(value) != self.length(obj):
+                raise ValidationError
+        else:
+            if len(value) != self.length:
+                raise ValidationError
 
 
 class StructBase(type):
