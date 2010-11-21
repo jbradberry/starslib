@@ -678,7 +678,7 @@ class Type45(Struct):
 
 
 class Type13(Struct):
-    """ Definitive Planet """
+    """ Authoritative Planet """
     type = 13
 
     planet_id = Int(11, max=998)
@@ -783,16 +783,86 @@ class Type14(Struct):
     last_scanned = Int(option=filetypes('h'))
 
 
-# class Type20(Struct):
-#     """ Waypoint - Server """
-#     type = 20
+class Type20(Struct):
+    """ Waypoint """
+    type = 20
 
+    x = Int()
+    y = Int()
+    planet_id = Int()
+    order = Int(4)
+    warp = Int(4)
+    unknown1 = Int(8)
+
+
+class Type19(Struct):
+    """ Orders-at Waypoint """
+    type = 19
+
+    x = Int()
+    y = Int()
+    planet_id = Int()
+    order = Int(4)
+    warp = Int(4)
+    unknown1 = Int(8)
+    ir_quant = Int(12)
+    ir_order = Int(4)
+    bo_quant = Int(12)
+    bo_order = Int(4)
+    ge_quant = Int(12)
+    ge_order = Int(4)
+    col_quant = Int(12)
+    col_order = Int(4)
+    fuel_quant = Int(12)
+    fuel_order = Int(4)
+
+
+# class Type3(Struct):
+#     """ Delete waypoint """
+#     type = 3
+
+#     fleet_id = Int(9)
+#     unknown1 = Int(7)
+#     sequence_num = Int(8)
+#     unknown2 = Int(8)
+
+
+# class Type16(Struct):
+#     """ Authoritative Fleet """
+#     type = 16
+
+#     fleet_id = Int(9)
+#     player = Int(7)
+#     player2 = Int()
+#     unknown1 = Int()
+#     planet_id = Int()
 #     x = Int()
 #     y = Int()
+#     design_bits = Int()
+#     count_array = Int(sizing)
+
+
+# class Type17(Struct):
+#     """ Alien Fleet """
+#     type = 17
+
+#     fleet_id = Int(9)
+#     player = Int(7)
+#     player2 = Int()
+#     info_level = Int(8)
+#     flags = Int(8)
 #     planet_id = Int()
-#     unknown1 = Int(4)
+#     x = Int()
+#     y = Int()
+#     design_bits = Int()
+#     count_array = Int(size=lambda s: 8 + (s.flags & 0x8),
+#                       length=lambda s: bin(s.design_bits).count('1'))
+#     cargo = Int(s.info_level >= 4)
+#     dx = Int(8)
+#     dy = Int(8)
 #     warp = Int(4)
-#     unknown2 = Int(8)
+#     unknown2 = Int(12, value=1)
+#     mass = Int(32)
 
 
 # class Type30(Struct):
@@ -816,40 +886,17 @@ class Type14(Struct):
 #     text = CStr(16)
 
 
-# class Type17(Struct):
-#     """ Alien fleets """
-#     type = 17
-
-#     ship_id = Int(8)
-#     unknown1 = Int(8)
-#     player_id = Int(8)
-#     unknown2 = Int(40)
-#     x = Int()
-#     y = Int()
-#     unknown3 = Int(56)
-#     mass = Int(32)
-
-
 # class Type43(Struct):
-#     """ Mass packets """
+#     """ Mass Packets / Debris / Wormholes / Mine Fields / Mystery Trader """
 #     type = 43
 
 #     # optional sizes: 2, 4, and 18
 #     unknown1 = Int()
 #     x = Int()
 #     y = Int()
-#     unknown2 = Int()
+#     planet_id = Int(10)
+#     unknown2 = Int(6)
 #     mass_ir = Int()
 #     mass_bo = Int()
 #     mass_ge = Int()
 #     unknown3 = Int(32)
-
-
-# class Type3(Struct):
-#     """ Delete waypoint """
-#     type = 3
-
-#     fleet_id = Int(9)
-#     unknown1 = Int(7)
-#     sequence_num = Int(8)
-#     unknown2 = Int(8)
