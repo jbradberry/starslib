@@ -74,6 +74,8 @@ class Field(object):
             size = getattr(obj, size)
             size = size if size < 3 else 4
             size *= 8
+        elif callable(size):
+            size = size(obj)
         result = 0
         try:
             acc_bit = 0
@@ -153,6 +155,8 @@ class Int(Field):
                 return
             size = size if size < 3 else 4
             size *= 8
+        elif callable(size):
+            size = size(obj)
         if not 0 <= value < 2**size:
             raise ValidationError
 
@@ -308,10 +312,16 @@ class Array(Field):
             reallength = self.length(obj)
         else:
             reallength = self.length
-        if reallength * self.size//8 > len(seq) - obj.byte:
+        if callable(self.size):
+            size = self.size(obj)
+        else:
+            size = self.size
+        if reallength * size//8 > len(seq) - obj.byte:
             raise ValidationError
-        result = tuple(seq[obj.byte:obj.byte + reallength*self.size//8])
-        obj.byte += reallength * self.size//8
+        result = seq[obj.byte:obj.byte + reallength*size//8]
+        result = zip(*(iter(result),) * (size//8))
+        result = tuple(sum(x<<(8*n) for n, x in enumerate(b)) for b in result)
+        obj.byte += reallength * size//8
         setattr(obj, self.name, result)
 
     def deparse(self, obj):
@@ -321,6 +331,12 @@ class Array(Field):
             raise ValidationError
         value = getattr(obj, self.name)
         L = len(value)
+        if callable(self.size):
+            size = self.size(obj)
+        else:
+            size = self.size
+        value = tuple(x>>(8*n) & 0xff for x in value
+                      for n in xrange(size//8))
         if self.length is None:
             value = tuple((L>>(8*n)) & 0xff
                           for n in xrange(self.head//8)) + value
@@ -328,7 +344,11 @@ class Array(Field):
 
     def validate(self, obj, value):
         super(Array, self).validate(obj, value)
-        if not all(0 <= x < 2**self.size for x in value):
+        if callable(self.size):
+            size = self.size(obj)
+        else:
+            size = self.size
+        if not all(0 <= x < 2**size for x in value):
             raise ValidationError
         if self.length is None:
             if not 0 <= len(value) < 2**self.head:
