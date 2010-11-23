@@ -861,6 +861,37 @@ class Type19(Struct):
     fuel_order = Int(4)
 
 
+class Type17(Struct):
+    """ Alien Fleet """
+    type = 17
+
+    fleet_id = Int(9)
+    player = Int(7)
+    player2 = Int()
+    info_level = Int(8)
+    flags = Int(8)
+    planet_id = Int()
+    x = Int()
+    y = Int()
+    design_bits = Int()
+    count_array = Array(size=lambda s: 16 - (s.flags & 0x8),
+                        length=lambda s: bin(s.design_bits).count('1'))
+    s1 = Int(2, option=lambda s: s.info_level >= 4)
+    s2 = Int(2, option=lambda s: s.info_level >= 4)
+    s3 = Int(2, option=lambda s: s.info_level >= 4)
+    s4 = Int(2, option=lambda s: s.info_level >= 4)
+    ironium = Int('s1')
+    boranium = Int('s2')
+    germanium = Int('s3')
+    fuel = Int(size=lambda s: 8 * (s.s4 or 1),
+               option=lambda s: s.info_level >= 4)
+    dx = Int(8)
+    dy = Int(8)
+    warp = Int(4)
+    unknown2 = Int(12)
+    mass = Int(32)
+
+
 # class Type3(Struct):
 #     """ Delete waypoint """
 #     type = 3
@@ -884,29 +915,6 @@ class Type19(Struct):
 #     y = Int()
 #     design_bits = Int()
 #     count_array = Int(sizing)
-
-
-# class Type17(Struct):
-#     """ Alien Fleet """
-#     type = 17
-
-#     fleet_id = Int(9)
-#     player = Int(7)
-#     player2 = Int()
-#     info_level = Int(8)
-#     flags = Int(8)
-#     planet_id = Int()
-#     x = Int()
-#     y = Int()
-#     design_bits = Int()
-#     count_array = Int(size=lambda s: 8 + (s.flags & 0x8),
-#                       length=lambda s: bin(s.design_bits).count('1'))
-#     cargo = Int(s.info_level >= 4)
-#     dx = Int(8)
-#     dy = Int(8)
-#     warp = Int(4)
-#     unknown2 = Int(12, value=1)
-#     mass = Int(32)
 
 
 # class Type30(Struct):
