@@ -15,7 +15,10 @@ class Value(object):
     def __get__(self, obj, type=None):
         if obj is None:
             raise AttributeError
-        return obj.__dict__[self.field.name]
+        value = obj.__dict__[self.field.name]
+        if not self.field.skip(obj, value):
+            self.field.validate(obj, value)
+        return value
 
     def __set__(self, obj, value):
         if not self.field.skip(obj, value):
