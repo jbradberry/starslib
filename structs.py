@@ -243,6 +243,8 @@ class CStr(Field):
             raise ValidationError
         S = self.compress(getattr(obj, self.name))
         L = len(S)
+        if L == 0:
+            return (0, 0)
         size = [L>>(8*n) & 0xff for n in xrange(self.size//8)]
         return size + S
 
