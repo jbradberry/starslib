@@ -901,14 +901,33 @@ class Type17(Struct):
     mass = Int(32)
 
 
-# class Type3(Struct):
-#     """ Delete waypoint """
-#     type = 3
+class Type40(Struct):
+    """ In-game messages """
+    type = 40
 
-#     fleet_id = Int(9)
-#     unknown1 = Int(7)
-#     sequence_num = Int(8)
-#     unknown2 = Int(8)
+    unknown1 = Int(32)
+    sender = Int()
+    receiver = Int()
+    unknown2 = Int()
+    text = CStr(16)
+
+
+# class Type26(Struct):
+#     """ Other player's designs """
+#     type = 26
+
+#     info_level = Int(8)
+#     unknown = Int(5*8)
+#     # optional (info_level > 3)
+#     comp_length = Int(8)
+#     unknown2 = Int(10*8)
+#     #   multi-part list
+#     flags = Int()
+#     part_subid = Int(8)
+#     quantity = Int(8)
+#     #   end list
+#     # end optional
+#     name = CStr()
 
 
 # class Type16(Struct):
@@ -918,12 +937,42 @@ class Type17(Struct):
 #     fleet_id = Int(9)
 #     player = Int(7)
 #     player2 = Int()
-#     unknown1 = Int()
+#     info_level = Int(8)
+#     flags = Int(8)
 #     planet_id = Int()
 #     x = Int()
 #     y = Int()
 #     design_bits = Int()
-#     count_array = Int(sizing)
+#     count_array = Array(bitwidth=lambda s: 16 - (s.flags & 0x8),
+#                         length=lambda s: bin(s.design_bits).count('1'))
+#     size_cargo = Int(option=lambda s: s.info_level >= 4)
+#     ironium = Int(bitwidth=lambda s: s.size_cargo & 0b11,
+#                   option=lambda s: s.info_level >= 4)
+#     boranium = Int(bitwidth=lambda s: (s.size_cargo & 0b1100) >> 2,
+#                    option=lambda s: s.info_level >= 4)
+#     germanium = Int(bitwidth=lambda s: (s.size_cargo & 0b110000) >> 4,
+#                     option=lambda s: s.info_level >= 4)
+#     colonists = Int(bitwidth=lambda s: (s.size_cargo & 0b11000000) >> 6,
+#                     option=lambda s: s.info_level >= 7)
+#     fuel = Int(bitwidth=lambda s: (s.size_cargo & 0b1100000000) >> 8,
+#                option=lambda s: s.info_level >= 7)
+#     unknown = Int()
+#     # this is really a list of 2-tuples
+#     pct_of_type_damaged = Int(7, option=lambda s: s.unknown > 0)
+#     damage = Int(9, option=lambda s: s.unknown > 0)
+#     # end list
+#     battle_plan = Int(8)
+#     queue_len = Int(8)
+
+
+# class Type3(Struct):
+#     """ Delete waypoint """
+#     type = 3
+
+#     fleet_id = Int(9)
+#     unknown1 = Int(7)
+#     sequence_num = Int(8)
+#     unknown2 = Int(8)
 
 
 # class Type30(Struct):
@@ -935,16 +984,6 @@ class Type17(Struct):
 #     u3 = Int(8)
 #     u4 = Int(8)
 #     name = CStr()
-
-
-# class Type40(Struct):
-#     """ In-game messages """
-#     type = 40
-
-#     unknown1 = Int(32)
-#     sender_id = Int(8)
-#     unknown2 = Int(40)
-#     text = CStr(16)
 
 
 # class Type43(Struct):
