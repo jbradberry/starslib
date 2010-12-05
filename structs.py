@@ -343,7 +343,7 @@ class CStr(Str):
                     tmp -= 0x16
                     result.extend(((tmp>>4) + 0xB, tmp & 0xF))
                 else:
-                    result.extend((0xF, tmp>>4, tmp & 0xF))
+                    result.extend((0xF, tmp & 0xF, tmp>>4))
         if len(result) % 2 != 0:
             result.append(0xF)
         return [(result[i]<<4)+result[i+1] for i in xrange(0, len(result), 2)]
@@ -527,7 +527,7 @@ class StarsFile(object):
         if stype in Struct._registry:
             return Struct._registry[stype](self)
         instance = FakeStruct(self)
-        instance.type = stype
+        instance.type = stype # needed for deparsing FakeStructs
         return instance
 
 
