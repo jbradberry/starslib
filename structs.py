@@ -65,6 +65,20 @@ class Field(object):
         self._counter = Field.counter
         Field.counter += 1
         self._bitwidth = bitwidth
+        if callable(bitwidth):
+            def bitwidth(self, obj):
+                bitwidth = self._bitwidth(obj)
+                return self._size_to_bits.get(bitwidth, bitwidth)
+        elif isinstance(bitwidth, basestring):
+            def bitwidth(self, obj):
+                return self._size_to_bits.get(getattr(obj, self._bitwidth),
+                                              None)
+        else:
+            def bitwidth(self, obj):
+                return self._bitwidth
+
+        self.bitwidth = bitwidth.__get__(self, self.__class__)
+
         self.value = value
         self.max = max
         self.option = option
@@ -76,14 +90,6 @@ class Field(object):
         self.name = name
         self.struct = cls
         cls.fields.insert(bisect(cls.fields, self), self)
-
-    def bitwidth(self, obj):
-        if callable(self._bitwidth):
-            bitwidth = self._bitwidth(obj)
-            return self._size_to_bits.get(bitwidth, bitwidth)
-        elif isinstance(self._bitwidth, basestring):
-            return self._size_to_bits.get(getattr(obj, self._bitwidth), None)
-        return self._bitwidth
 
     def _pre_parse(self, obj, seq):
         obj._bitwidth = self.bitwidth(obj)
