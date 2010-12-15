@@ -23,16 +23,23 @@ class Value(object):
     def __get__(self, obj, type=None):
         if obj is None:
             raise AttributeError
+        if self.field.dynamic:
+            field, t = self.field.dynamic
+            update = getattr(field, 'value_'+t)(obj)
+            self.field.set_value(obj, update)
+        for ref, t in self.field.references:
+            update = getattr(self.field, 'value_'+t)(obj)
+            ref.set_value(obj, update, True)
         value = obj.__dict__[self.field.name]
-        if not self.field.skip(obj, value):
-            self.field.validate(obj, value)
+        self.field.validate(obj, value)
         return value
 
     def __set__(self, obj, value):
-        if not self.field.skip(obj, value):
-            self.field.validate(obj, value)
         value = self.field.clean(value)
         obj.__dict__[self.field.name] = value
+        for ref, t in self.field.references:
+            ref.set_value(obj, getattr(self.field, 'value_'+t)(obj), True)
+        self.field.validate(obj, value)
 
 
 def make_contrib(new_cls, func=None):
@@ -57,22 +64,23 @@ class FieldBase(type):
 class Field(object):
     __metaclass__ = FieldBase
 
-    _size_to_bits = {0: 0, 1: 8, 2: 16, 3: 32}
-
     counter = 0
     def __init__(self, bitwidth=16, value=None, max=None,
-                 option=None, **kwargs):
+                 choices=None, option=None, **kwargs):
         self._counter = Field.counter
         Field.counter += 1
+
+        self.references = []
+        self.dynamic = None
+
         self._bitwidth = bitwidth
         if callable(bitwidth):
             def bitwidth(self, obj):
-                bitwidth = self._bitwidth(obj)
-                return self._size_to_bits.get(bitwidth, bitwidth)
+                return self._bitwidth(obj)
         elif isinstance(bitwidth, basestring):
+            self.references.append([bitwidth, 'bitwidth'])
             def bitwidth(self, obj):
-                return self._size_to_bits.get(getattr(obj, self._bitwidth),
-                                              None)
+                return self._bitwidth.get_value(obj)
         else:
             def bitwidth(self, obj):
                 return self._bitwidth
@@ -81,6 +89,7 @@ class Field(object):
 
         self.value = value
         self.max = max
+        self.choices = choices
         self.option = option
 
     def __cmp__(self, other):
@@ -91,27 +100,55 @@ class Field(object):
         self.struct = cls
         cls.fields.insert(bisect(cls.fields, self), self)
 
-    def _pre_parse(self, obj, seq):
-        obj._bitwidth = self.bitwidth(obj)
-        if obj._bitwidth and obj.byte >= len(seq):
+    def _parse_vars(self, obj, seq, vars):
+        vars.bitwidth = self.bitwidth(obj)
+
+    def _pre_parse(self, obj, seq, vars):
+        if vars.bitwidth and obj.byte >= len(seq):
             raise ParseError("%s.%s: %s" % (self.struct.__name__,
                                             self.name, seq))
 
-    def _post_parse(self, result):
-        return result
+    def _parse(self, obj, seq, vars):
+        pass
 
-    def _pre_deparse(self, obj):
-        obj._bitwidth = self.bitwidth(obj)
+    def _post_parse(self, obj, seq, vars):
+        return vars.result
+
+    def parse(self, obj, seq):
+        vars = obj._vars
+        self._parse_vars(obj, seq, vars)
+        self._pre_parse(obj, seq, vars)
+        self._parse(obj, seq, vars)
+        return self._post_parse(obj, seq, vars)
+
+    def _deparse_vars(self, obj, vars):
+        vars.bitwidth = self.bitwidth(obj)
+        vars.value = getattr(obj, self.name)
+
+    def _pre_deparse(self, obj, vars):
+        pass
+
+    def _deparse(self, obj, vars):
+        pass
+
+    def _post_deparse(self, obj, vars):
+        return vars.result
+
+    def deparse(self, obj):
+        vars = obj._vars
+        self._deparse_vars(obj, vars)
+        self._pre_deparse(obj, vars)
+        self._deparse(obj, vars)
+        return self._post_deparse(obj, vars)
 
     def clean(self, value):
         return value
 
-    def skip(self, obj, value=None):
-        if value is None:
-            if self.option and not self.option(obj):
-                return True
-            if self.bitwidth(obj) is None:
-                return True
+    def skip(self, obj):
+        if self.option and not self.option(obj):
+            return True
+        if self.bitwidth(obj) is None:
+            return True
         return False
 
     def validate(self, obj, value):
@@ -120,55 +157,69 @@ class Field(object):
             if self.option:
                 if self.option(obj):
                     raise ValidationError
-                return
-            if bitwidth is not None:
-                raise ValidationError
-            return
+                return True
+            if bitwidth is not None and bitwidth > 0:
+                raise ValidationError("bitwidth: %s" % bitwidth)
+            return True
         if bitwidth is None and value is not None:
             raise ValidationError
         if self.value is not None and value != self.value:
-            raise ValidationError("%s: %s != %s" % (self.name, value, self.value))
+            raise ValidationError("%s: %s != %s" % (self.name, value,
+                                                    self.value))
+
+    def get_value(self, obj):
+        value = obj.__dict__[self.name]
+        if value is None:
+            return None
+        if self.choices is not None:
+            value = dict(self.choices)[value]
+        return value
+
+    def set_value(self, obj, value, side_effects=False):
+        if value is not None and self.choices is not None:
+            value = min((v, k) for k, v in self.choices if value <= v)[1]
+
+        if side_effects:
+            setattr(obj, self.name, value)
+        else:
+            obj.__dict__[self.name] = self.clean(value)
 
 
 class Int(Field):
-    def parse(self, obj, seq):
-        self._pre_parse(obj, seq)
-
-        result = 0
+    def _parse(self, obj, seq, vars):
+        vars.result = 0
         try:
             acc_bit = 0
-            while obj._bitwidth > 0:
-                if obj._bitwidth >= 8-obj.bit:
-                    result += (seq[obj.byte]>>obj.bit) << acc_bit
+            while vars.bitwidth > 0:
+                if vars.bitwidth >= 8-obj.bit:
+                    vars.result += (seq[obj.byte]>>obj.bit) << acc_bit
                     obj.byte += 1
                     acc_bit += 8-obj.bit
-                    obj._bitwidth -= 8-obj.bit
+                    vars.bitwidth -= 8-obj.bit
                     obj.bit = 0
                 else:
-                    result += ((seq[obj.byte] >> obj.bit) &
-                               (2**obj._bitwidth - 1)) << acc_bit
-                    obj.bit += obj._bitwidth
-                    obj._bitwidth = 0
+                    vars.result += ((seq[obj.byte] >> obj.bit) &
+                                    (2**vars.bitwidth - 1)) << acc_bit
+                    obj.bit += vars.bitwidth
+                    vars.bitwidth = 0
         except IndexError, e:
             raise ParseError("%s %s: %s > %s" % (self.struct.__name__,
                                                  seq, obj.byte, len(seq)))
 
-        return self._post_parse(result)
-
-    def deparse(self, obj):
-        self._pre_deparse(obj)
+    def _deparse(self, obj, vars):
         result = []
-        value = getattr(obj, self.name) << obj.bit | obj.prev
-        obj._bitwidth += obj.bit
-        while obj._bitwidth >= 8:
+        value = vars.value << obj.bit | obj.prev
+        vars.bitwidth += obj.bit
+        while vars.bitwidth >= 8:
             value, tmp = value >> 8, value & 0xff
-            obj._bitwidth -= 8
+            vars.bitwidth -= 8
             result.append(tmp)
-        obj.prev, obj.bit = value, obj._bitwidth
-        return result
+        obj.prev, obj.bit = value, vars.bitwidth
+        vars.result = result
 
     def validate(self, obj, value):
-        super(Int, self).validate(obj, value)
+        if super(Int, self).validate(obj, value):
+            return True
         if not isinstance(value, numbers.Integral):
             raise ValidationError("%s" % value)
         if self.max is not None and value > self.max:
@@ -176,14 +227,20 @@ class Int(Field):
         if not 0 <= value < 2**self.bitwidth(obj):
             raise ValidationError
 
+    def value_bitwidth(self, obj):
+        value = obj.__dict__[self.name]
+        if value is None:
+            return None
+        return 0 if value == 0 else len(bin(value)) - 2
+
 
 class Bool(Int):
     def __init__(self, **kwargs):
-        kwargs.update(bitwidth=1)
+        kwargs.update(bitwidth=1, choices=None)
         super(Bool, self).__init__(**kwargs)
 
-    def _post_parse(self, result):
-        return bool(result)
+    def _post_parse(self, obj, seq, vars):
+        return bool(vars.result)
 
     def clean(self, value):
         return bool(value)
@@ -195,6 +252,8 @@ class Sequence(Field):
         super(Sequence, self).__init__(**kwargs)
         self.head = head
         self._length = length
+        if isinstance(length, basestring):
+            self.references.append([length, 'length'])
 
     def length(self, obj, seq=None):
         if self._length is None:
@@ -205,66 +264,68 @@ class Sequence(Field):
         elif callable(self._length):
             length = self._length(obj)
         elif isinstance(self._length, basestring):
-            length = getattr(obj, self._length)
+            length = obj.__dict__[self._length]
         else:
             length = self._length
         return length
 
-    def _pre_parse(self, obj, seq):
-        super(Sequence, self)._pre_parse(obj, seq)
-        if obj._bitwidth % 8 != 0:
-            raise ParseError
+    def _parse_vars(self, obj, seq, vars):
+        super(Sequence, self)._parse_vars(obj, seq, vars)
+        vars.length = self.length(obj, seq)
+        if self._length is None:
+            obj.byte += self.head // 8
 
+    def _pre_parse(self, obj, seq, vars):
+        super(Sequence, self)._pre_parse(obj, seq, vars)
+        if vars.bitwidth % 8 != 0:
+            raise ParseError
         if obj.bit != 0:
             raise ParseError
 
-        obj._length = self.length(obj, seq)
-        if self._length is None:
-            obj.byte += self.head // 8
-        if obj._length * obj._bitwidth//8 > len(seq) - obj.byte:
+        if vars.length * vars.bitwidth//8 > len(seq) - obj.byte:
             raise ParseError("byte: %s, seq: %s" % (obj.byte, seq))
 
-    def parse(self, obj, seq):
-        self._pre_parse(obj, seq)
-
-        result = seq[obj.byte:obj.byte + obj._length * obj._bitwidth//8]
-        result = zip(*(iter(result),) * (obj._bitwidth//8))
+    def _parse(self, obj, seq, vars):
+        result = seq[obj.byte:obj.byte + vars.length * vars.bitwidth//8]
+        result = zip(*(iter(result),) * (vars.bitwidth//8))
         result = tuple(sum(x<<(8*n) for n, x in enumerate(b)) for b in result)
-        obj.byte += obj._length * obj._bitwidth//8
+        obj.byte += vars.length * vars.bitwidth//8
+        vars.result = result
 
-        return self._post_parse(result)
-
-    def _pre_deparse(self, obj):
-        Field._pre_deparse(self, obj)
+    def _pre_deparse(self, obj, vars):
         if obj.prev != 0 or obj.bit != 0:
             raise ParseError
-        if obj._bitwidth % 8 != 0:
+        if vars.bitwidth % 8 != 0:
             raise ParseError
-        return getattr(obj, self.name)
 
-    def _post_deparse(self, result):
-        return result
+    def _deparse(self, obj, vars):
+        vars.result = [x>>(8*n) & 0xff for x in vars.value
+                       for n in xrange(vars.bitwidth//8)]
 
-    def deparse(self, obj):
-        result = self._pre_deparse(obj)
-
-        L = len(result)
-
-        result = [x>>(8*n) & 0xff for x in result
-                  for n in xrange(obj._bitwidth//8)]
-        result = self._post_deparse(result)
-
+    def _post_deparse(self, obj, vars):
+        L = len(vars.value)
+        vars.L = L
         if self._length is None:
             head = [L>>(8*n) & 0xff for n in xrange(self.head//8)]
-            result = head + result
-
-        return result
+            vars.result = head + vars.result
+        return vars.result
 
     def validate(self, obj, value):
-        super(Sequence, self).validate(obj, value)
+        if super(Sequence, self).validate(obj, value):
+            return True
         length = self.length(obj)
-        if length is not None and len(value) != length:
-            raise ValidationError("%s %s" % (value, length))
+        if self._length is None:
+            if not 0 <= len(value) < 2**self.head:
+                raise ValidationError
+        # don't worry about the basestring case; the chained setattr
+        # will get it.
+        elif not isinstance(self._length, basestring):
+            if len(value) != length:
+                raise ValidationError
+
+    def value_length(self, obj):
+        value = obj.__dict__[self.name]
+        return len(value) if value is not None else None
 
 
 class Str(Sequence):
@@ -272,15 +333,15 @@ class Str(Sequence):
         kwargs.update(bitwidth=8, length=length, head=head)
         super(Str, self).__init__(**kwargs)
 
-    def _post_parse(self, result):
-        return ''.join(map(chr, result))
+    def _post_parse(self, obj, seq, vars):
+        return ''.join(map(chr, vars.result))
 
-    def _pre_deparse(self, obj):
-        result = Sequence._pre_deparse(self, obj)
-        return map(ord, result)
+    def _pre_deparse(self, obj, vars):
+        vars.value = map(ord, vars.value)
 
     def validate(self, obj, value):
-        super(Str, self).validate(obj, value)
+        if super(Str, self).validate(obj, value):
+            return True
         if not isinstance(value, basestring):
             raise ValidationError
 
@@ -292,23 +353,27 @@ class CStr(Str):
         kwargs.update(head=head)
         super(CStr, self).__init__(**kwargs)
 
-    def _pre_parse(self, obj, seq):
-        Sequence._pre_parse(self, obj, seq)
-        if obj._length == 0:
+    def _pre_parse(self, obj, seq, vars):
+        super(CStr, self)._pre_parse(obj, seq, vars)
+        if vars.length == 0:
             obj.byte += 1
 
-    def _post_parse(self, result):
-        return self.decompress(result)
+    def _post_parse(self, obj, seq, vars):
+        return self.decompress(vars.result)
 
-    def _pre_deparse(self, obj):
-        result = Sequence._pre_deparse(self, obj)
-        return self.compress(result)
+    def _pre_deparse(self, obj, vars):
+        vars.value = self.compress(vars.value)
 
-    def _post_deparse(self, result):
+    def _post_deparse(self, obj, vars):
+        vars.result = super(CStr, self)._post_deparse(obj, vars)
         if self._length is None:
-            if len(result) == 0:
-                result = [0]
-        return result
+            if vars.L == 0:
+                vars.result.append(0)
+        return vars.result
+
+    def value_length(self, obj):
+        value = self.compress(obj.__dict__[self.name])
+        return len(value) if value is not None else None
 
     def decompress(self, lst):
         tmp = ((x>>i) & 0xf for x in lst for i in (4,0))
@@ -361,16 +426,19 @@ class Array(Sequence):
         super(Array, self).__init__(**kwargs)
 
     def validate(self, obj, value):
-        super(Array, self).validate(obj, value)
+        if super(Array, self).validate(obj, value):
+            return True
         bitwidth = self.bitwidth(obj)
         if not all(0 <= x < 2**bitwidth for x in value):
             raise ValidationError
-        if self._length is None:
-            if not 0 <= len(value) < 2**self.head:
-                raise ValidationError
-        elif callable(self._length):
-            if len(value) != self._length(obj):
-                raise ValidationError
+
+    def value_bitwidth(self, obj):
+        value = obj.__dict__[self.name]
+        if value is None:
+            return None
+        if not value:
+            return 0
+        bitwidth = max(0 if x == 0 else len(bin(x)) - 2 for x in value)
 
 
 class StructBase(type):
@@ -386,6 +454,15 @@ class StructBase(type):
         new_class.add_to_class('fields', [])
         for obj_name, obj in attrs.iteritems():
             new_class.add_to_class(obj_name, obj)
+
+        by_name = dict((field.name, field) for field in new_class.fields)
+        for field in new_class.fields:
+            for ref in field.references:
+                new_field = by_name[ref[0]]
+                new_field.dynamic = (field, ref[1])
+                ref[0] = new_field
+                setattr(field, '_'+ref[1], new_field)
+
         if 'type' in attrs:
             new_class._registry[attrs['type']] = new_class
 
@@ -398,6 +475,10 @@ class StructBase(type):
             setattr(cls, name, value)
 
 
+class Vars(object):
+    pass
+
+
 class Struct(object):
     __metaclass__ = StructBase
     _registry = {}
@@ -406,6 +487,7 @@ class Struct(object):
 
     def __init__(self, sfile):
         self.file = sfile
+        self._vars = Vars()
 
     def __unicode__(self):
         return "{%s}" % (', '.join("%s: %r" % (f.name,
@@ -425,15 +507,15 @@ class Struct(object):
 
     @bytes.setter
     def bytes(self, seq):
-        self.byte, self.bit, self.length = 0, 0, len(seq)
+        self.byte, self.bit = 0, 0
         for field in self.fields:
             result = None if field.skip(self) else field.parse(self, seq)
             setattr(self, field.name, result)
             #print field.name, self.byte, getattr(self, field.name)
         if self.byte != len(seq) or self.bit != 0:
             raise ValidationError("%s %s (%s %s) %s" % (self.__class__.__name__,
-                                                     len(seq), self.byte,
-                                                     self.bit, seq))
+                                                        len(seq), self.byte,
+                                                        self.bit, seq))
 
     def adjust(self):
         return
@@ -536,6 +618,11 @@ class StarsFile(object):
         instance.type = stype # needed for deparsing FakeStructs
         return instance
 
+
+#_INTS = (0, 8, 16, 32)
+#BITWIDTH_CHOICES = tuple(_INTS.index(min(i for i in _INTS if x <= i))
+#                         for x in xrange(33))
+BITWIDTH_CHOICES = ((0, 0), (1, 8), (2, 16), (3, 32))
 
 ftypes = ('xy', 'x', 'hst', 'm', 'h', 'r')
 
@@ -757,9 +844,9 @@ class Type13(Struct):
     surface_min = Bool()
     routing = Bool() # turns on 2 bytes
     f7 = Bool()
-    s1 = Int(2, max=1)
-    s2 = Int(2, max=1)
-    s3 = Int(4, max=1)
+    s1 = Int(2, max=1, choices=BITWIDTH_CHOICES)
+    s2 = Int(2, max=1, choices=BITWIDTH_CHOICES)
+    s3 = Int(4, max=1, choices=BITWIDTH_CHOICES)
     frac_ir_conc = Int('s1')
     frac_bo_conc = Int('s2')
     frac_ge_conc = Int('s3')
@@ -774,10 +861,10 @@ class Type13(Struct):
     rad_orig = Int(8, option=lambda s: s.terraformed)
     apparent_pop = Int(12, option=lambda s: s.player < 16) # times 400
     apparent_defense = Int(4, option=lambda s: s.player < 16)
-    s4 = Int(2, option=lambda s: s.surface_min)
-    s5 = Int(2, option=lambda s: s.surface_min)
-    s6 = Int(2, option=lambda s: s.surface_min)
-    s7 = Int(2, option=lambda s: s.surface_min)
+    s4 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.surface_min)
+    s5 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.surface_min)
+    s6 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.surface_min)
+    s7 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.surface_min)
     ir_surf = Int('s4')
     bo_surf = Int('s5')
     ge_surf = Int('s6')
@@ -798,10 +885,12 @@ class Type14(Struct):
 
     planet_id = Int(11, max=998)
     player = Int(5)
+    # collapse these 4 fields into a single info_level field
     low_info = Bool() # add station design, if relevant
     med_info = Bool() # add minerals & hab
     full_info = Bool() # add real pop & structures
     const = Int(4, value=0)
+    # /collapse
     homeworld = Bool()
     f0 = Bool(value=True)
     station = Bool()
@@ -811,9 +900,12 @@ class Type14(Struct):
     surface_min = Bool()
     routing = Bool() # turns on 2 bytes
     f7 = Bool()
-    s1 = Int(2, max=1, option=lambda s: s.med_info or s.full_info)
-    s2 = Int(2, max=1, option=lambda s: s.med_info or s.full_info)
-    s3 = Int(4, max=1, option=lambda s: s.med_info or s.full_info)
+    s1 = Int(2, max=1, choices=BITWIDTH_CHOICES,
+             option=lambda s: s.med_info or s.full_info)
+    s2 = Int(2, max=1, choices=BITWIDTH_CHOICES,
+             option=lambda s: s.med_info or s.full_info)
+    s3 = Int(4, max=1, choices=BITWIDTH_CHOICES,
+             option=lambda s: s.med_info or s.full_info)
     frac_ir_conc = Int('s1')
     frac_bo_conc = Int('s2')
     frac_ge_conc = Int('s3')
@@ -833,10 +925,14 @@ class Type14(Struct):
                            (s.med_info or s.full_info) and s.player < 16)
     apparent_defense = Int(4, option=lambda s:
                                (s.med_info or s.full_info) and s.player < 16)
-    s4 = Int(2, option=lambda s: s.full_info and s.surface_min)
-    s5 = Int(2, option=lambda s: s.full_info and s.surface_min)
-    s6 = Int(2, option=lambda s: s.full_info and s.surface_min)
-    s7 = Int(2, option=lambda s: s.full_info and s.surface_min)
+    s4 = Int(2, choices=BITWIDTH_CHOICES,
+             option=lambda s: s.full_info and s.surface_min)
+    s5 = Int(2, choices=BITWIDTH_CHOICES,
+             option=lambda s: s.full_info and s.surface_min)
+    s6 = Int(2, choices=BITWIDTH_CHOICES,
+             option=lambda s: s.full_info and s.surface_min)
+    s7 = Int(2, choices=BITWIDTH_CHOICES,
+             option=lambda s: s.full_info and s.surface_min)
     ir_surf = Int('s4')
     bo_surf = Int('s5')
     ge_surf = Int('s6')
@@ -893,13 +989,12 @@ class Type17(Struct):
     design_bits = Int()
     count_array = Array(bitwidth=lambda s: 16 - (s.flags & 0x8),
                         length=lambda s: bin(s.design_bits).count('1'))
-    size_cargo = Int(option=lambda s: s.info_level >= 4)
-    ironium = Int(bitwidth=lambda s: s.size_cargo & 0b11,
-                  option=lambda s: s.info_level >= 4)
-    boranium = Int(bitwidth=lambda s: (s.size_cargo & 0b1100) >> 2,
-                   option=lambda s: s.info_level >= 4)
-    germanium = Int(bitwidth=lambda s: (s.size_cargo & 0b110000) >> 4,
-                    option=lambda s: s.info_level >= 4)
+    s1 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s2 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s3 = Int(12, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    ironium = Int('s1', option=lambda s: s.info_level >= 4)
+    boranium = Int('s2', option=lambda s: s.info_level >= 4)
+    germanium = Int('s3', option=lambda s: s.info_level >= 4)
     dx = Int(8)
     dy = Int(8)
     warp = Int(4)
