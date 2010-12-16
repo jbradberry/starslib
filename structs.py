@@ -1067,39 +1067,37 @@ class Type26(Struct):
     name = CStr()
 
 
-# class Type16(Struct):
-#     """ Authoritative Fleet """
-#     type = 16
+class Type16(Struct):
+    """ Authoritative Fleet """
+    type = 16
 
-#     fleet_id = Int(9)
-#     player = Int(7)
-#     player2 = Int()
-#     info_level = Int(8)
-#     flags = Int(8)
-#     planet_id = Int()
-#     x = Int()
-#     y = Int()
-#     design_bits = Int()
-#     count_array = Array(bitwidth=lambda s: 16 - (s.flags & 0x8),
-#                         length=lambda s: bin(s.design_bits).count('1'))
-#     size_cargo = Int(option=lambda s: s.info_level >= 4)
-#     ironium = Int(bitwidth=lambda s: s.size_cargo & 0b11,
-#                   option=lambda s: s.info_level >= 4)
-#     boranium = Int(bitwidth=lambda s: (s.size_cargo & 0b1100) >> 2,
-#                    option=lambda s: s.info_level >= 4)
-#     germanium = Int(bitwidth=lambda s: (s.size_cargo & 0b110000) >> 4,
-#                     option=lambda s: s.info_level >= 4)
-#     colonists = Int(bitwidth=lambda s: (s.size_cargo & 0b11000000) >> 6,
-#                     option=lambda s: s.info_level >= 7)
-#     fuel = Int(bitwidth=lambda s: (s.size_cargo & 0b1100000000) >> 8,
-#                option=lambda s: s.info_level >= 7)
-#     unknown = Int()
-#     # this is really a list of 2-tuples
-#     pct_of_type_damaged = Int(7, option=lambda s: s.unknown > 0)
-#     damage = Int(9, option=lambda s: s.unknown > 0)
-#     # end list
-#     battle_plan = Int(8)
-#     queue_len = Int(8)
+    fleet_id = Int(9)
+    player = Int(7)
+    player2 = Int()
+    info_level = Int(8)
+    flags = Int(8)
+    planet_id = Int()
+    x = Int()
+    y = Int()
+    design_bits = Int()
+    count_array = Array(bitwidth=lambda s: 16 - (s.flags & 0x8),
+                        length=lambda s: bin(s.design_bits).count('1'))
+    s1 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s2 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s3 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s4 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s5 = Int(8, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    ironium = Int('s1', option=lambda s: s.info_level >= 4)
+    boranium = Int('s2', option=lambda s: s.info_level >= 4)
+    germanium = Int('s3', option=lambda s: s.info_level >= 4)
+    colonists = Int('s4', option=lambda s: s.info_level >= 7)
+    fuel = Int('s5', option=lambda s: s.info_level >= 7)
+    dmg_design_bits = Int()
+    damage_amts = ObjArray(bitwidth=(('pct_of_type_damaged', 7),
+                                     ('damage', 9)),
+                           length=lambda s: bin(s.dmg_design_bits).count('1'))
+    battle_plan = Int(8)
+    queue_len = Int(8)
 
 
 # class Type3(Struct):
@@ -1137,3 +1135,15 @@ class Type26(Struct):
 #     mass_bo = Int()
 #     mass_ge = Int()
 #     unknown3 = Int(32)
+
+
+# class Type28(Struct):
+
+# class Type4(Struct):
+#     """ Add Waypoint """
+
+# class Type38(Struct):
+#     """ Player Relations """
+#     type = 38
+
+#     relations = Array(length=lambda s: s.sfile.num_players)
