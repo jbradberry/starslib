@@ -1054,11 +1054,9 @@ class Type26(Struct):
     info_level = Int(8)
     unknown = Array(bitwidth=8, length=5)
     slots_length = Int(8, option=lambda s: s.info_level > 3)
-    # FIXME: replace
-    unknown2 = Array(bitwidth=8, length=10, option=lambda s: s.info_level > 3)
-    # initial_turn = Int(option=lambda s: s.info_level > 3)
-    # total_constructed = Int(32, option=lambda s: s.info_level > 3)
-    # current_quantity = Int(32, option=lambda s: s.info_level > 3)
+    initial_turn = Int(option=lambda s: s.info_level > 3)
+    total_constructed = Int(32, option=lambda s: s.info_level > 3)
+    current_quantity = Int(32, option=lambda s: s.info_level > 3)
     slots = ObjArray(bitwidth=(('flags', 16),
                                ('part_sub_id', 8),
                                ('quantity', 8)),
