@@ -1047,22 +1047,24 @@ class Type40(Struct):
     text = CStr(16)
 
 
-# class Type26(Struct):
-#     """ Other player's designs """
-#     type = 26
+class Type26(Struct):
+    """ Ship & Starbase designs """
+    type = 26
 
-#     info_level = Int(8)
-#     unknown = Int(5*8)
-#     # optional (info_level > 3)
-#     comp_length = Int(8)
-#     unknown2 = Int(10*8)
-#     #   multi-part list
-#     flags = Int()
-#     part_subid = Int(8)
-#     quantity = Int(8)
-#     #   end list
-#     # end optional
-#     name = CStr()
+    info_level = Int(8)
+    unknown = Array(bitwidth=8, length=5)
+    slots_length = Int(8, option=lambda s: s.info_level > 3)
+    # FIXME: replace
+    unknown2 = Array(bitwidth=8, length=10, option=lambda s: s.info_level > 3)
+    # initial_turn = Int(option=lambda s: s.info_level > 3)
+    # total_constructed = Int(32, option=lambda s: s.info_level > 3)
+    # current_quantity = Int(32, option=lambda s: s.info_level > 3)
+    slots = ObjArray(bitwidth=(('flags', 16),
+                               ('part_sub_id', 8),
+                               ('quantity', 8)),
+                     length='slots_length',
+                     option=lambda s: s.info_level > 3)
+    name = CStr()
 
 
 # class Type16(Struct):
