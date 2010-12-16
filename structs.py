@@ -252,22 +252,24 @@ class Sequence(Field):
         super(Sequence, self).__init__(**kwargs)
         self.head = head
         self._length = length
-        if isinstance(length, basestring):
+        if length is None:
+            def length(self, obj, seq=None):
+                if seq is None:
+                    return None
+                return sum(x<<(8*n) for n, x in
+                           enumerate(seq[obj.byte:obj.byte+self.head//8]))
+        elif callable(length):
+            def length(self, obj, seq=None):
+                return self._length(obj)
+        elif isinstance(length, basestring):
             self.references.append([length, 'length'])
-
-    def length(self, obj, seq=None):
-        if self._length is None:
-            if seq is None:
-                return None
-            length = sum(x<<(8*n) for n, x in
-                         enumerate(seq[obj.byte:obj.byte+self.head//8]))
-        elif callable(self._length):
-            length = self._length(obj)
-        elif isinstance(self._length, basestring):
-            length = obj.__dict__[self._length]
+            def length(self, obj, seq=None):
+                return self._length.get_value(obj)
         else:
-            length = self._length
-        return length
+            def length(self, obj, seq=None):
+                return self._length
+
+        self.length = length.__get__(self, self.__class__)
 
     def _parse_vars(self, obj, seq, vars):
         super(Sequence, self)._parse_vars(obj, seq, vars)
@@ -288,7 +290,7 @@ class Sequence(Field):
     def _parse(self, obj, seq, vars):
         result = seq[obj.byte:obj.byte + vars.length * vars.bitwidth//8]
         result = zip(*(iter(result),) * (vars.bitwidth//8))
-        result = tuple(sum(x<<(8*n) for n, x in enumerate(b)) for b in result)
+        result = [sum(x<<(8*n) for n, x in enumerate(b)) for b in result]
         obj.byte += vars.length * vars.bitwidth//8
         vars.result = result
 
@@ -439,6 +441,42 @@ class Array(Sequence):
         if not value:
             return 0
         bitwidth = max(0 if x == 0 else len(bin(x)) - 2 for x in value)
+
+
+class ObjArray(Array):
+    def _parse_vars(self, obj, seq, vars):
+        super(ObjArray, self)._parse_vars(obj, seq, vars)
+        vars.bitwidths = vars.bitwidth
+        vars.bitwidth = sum(x[1] for x in vars.bitwidths)
+
+    def _post_parse(self, obj, seq, vars):
+        bitwidths = vars.bitwidths
+        bw = [(b[0], b[1], sum((0,) + zip(*bitwidths)[1][:i]))
+              for i, b in enumerate(bitwidths)]
+        return [dict((k, (x>>o)&(2**b-1)) for k, b, o in bw)
+                for x in vars.result]
+
+    def _deparse_vars(self, obj, vars):
+        super(ObjArray, self)._deparse_vars(obj, vars)
+        vars.bitwidths = vars.bitwidth
+        vars.bitwidth = sum(x[1] for x in vars.bitwidths)
+
+    def _pre_deparse(self, obj, vars):
+        Sequence._pre_deparse(self, obj, vars)
+        bitwidths = vars.bitwidths
+        bw = [(b[0], b[1], sum((0,) + zip(*bitwidths)[1][:i]))
+              for i, b in enumerate(bitwidths)]
+        vars.value = [sum(x[k]<<o for k, b, o in bw) for x in vars.value]
+
+    def validate(self, obj, value):
+        if Sequence.validate(self, obj, value):
+            return True
+        bitwidth = self.bitwidth(obj)
+        if not all(all(0 <= x[k] < 2**v for k, v in bitwidth) for x in value):
+            raise ValidationError
+        if any(set(x.iterkeys()) - set(b[0] for b in bitwidth)
+               for x in value):
+            raise ValidationError
 
 
 class StructBase(type):
@@ -619,11 +657,7 @@ class StarsFile(object):
         return instance
 
 
-#_INTS = (0, 8, 16, 32)
-#BITWIDTH_CHOICES = tuple(_INTS.index(min(i for i in _INTS if x <= i))
-#                         for x in xrange(33))
 BITWIDTH_CHOICES = ((0, 0), (1, 8), (2, 16), (3, 32))
-
 ftypes = ('xy', 'x', 'hst', 'm', 'h', 'r')
 
 def filetypes(*args):
