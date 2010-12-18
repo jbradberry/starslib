@@ -526,6 +526,7 @@ class Struct(object):
     def __init__(self, sfile):
         self.file = sfile
         self._vars = Vars()
+        self._vars._seq = sfile.counts.get(self.type, 0)
 
     def __unicode__(self):
         return "{%s}" % (', '.join("%s: %r" % (f.name,
@@ -630,6 +631,7 @@ class StarsFile(object):
     def bytes(self, data):
         index = 0
         self.structs = []
+        self.counts = {}
         while index < len(data):
             if self.stars > 0:
                 stype, size = None, 4
@@ -639,6 +641,7 @@ class StarsFile(object):
                 index += 2
 
             S = self.dispatch(stype)
+            self.counts[stype] = self.counts.get(stype, 0) + 1
             self.structs.append(S)
             buf = struct.unpack("%dB" % size, data[index:index+size])
             if S.encrypted:
@@ -652,9 +655,7 @@ class StarsFile(object):
     def dispatch(self, stype):
         if stype in Struct._registry:
             return Struct._registry[stype](self)
-        instance = FakeStruct(self)
-        instance.type = stype # needed for deparsing FakeStructs
-        return instance
+        return FakeStruct(self, stype)
 
 
 BITWIDTH_CHOICES = ((0, 0), (1, 8), (2, 16), (3, 32))
@@ -668,6 +669,10 @@ def filetypes(*args):
 
 class FakeStruct(Struct):
     bytes = None
+
+    def __init__(self, sfile, stype):
+        self.type = stype # needed for deparsing FakeStructs
+        super(FakeStruct, self).__init__(sfile)
 
     def __unicode__(self):
         return unicode(self.bytes)
@@ -711,6 +716,10 @@ class Type8(Struct):
     gameover = Bool()
     shareware = Bool()
     unused = Int(3)
+
+    def __init__(self, sfile):
+        super(Type8, self).__init__(sfile)
+        sfile.counts.clear()
 
     def adjust(self):
         self.file.prng_init(self.game_id, self.turn, self.player,
@@ -1098,6 +1107,60 @@ class Type16(Struct):
     queue_len = Int(8)
 
 
+class Type43(Struct):
+    """ Minefields / Debris / Mass Packets / Wormholes / Mystery Trader """
+    type = 43
+
+    # optional sizes: 2, 4, and 18
+    quantity = Int(option=lambda s: s.file.type in ('hst', 'm') and
+                   s._vars._seq == 0)
+
+    index = Int(9, option=lambda s: s.quantity is None)
+    owner = Int(4, option=lambda s: s.quantity is None)
+    misc_type = Int(3, max=3, option=lambda s: s.quantity is None)
+    detonate = Int(option=filetypes('x'))
+    x = Int(option=lambda s: s.quantity is None and s.detonate is None)
+    y = Int(option=lambda s: s.quantity is None and s.detonate is None)
+
+    ## minefields
+    num_mines = Int(option=lambda s: s.detonate is None and s.misc_type == 0)
+    zero1 = Int(value=0, option=lambda s: s.detonate is None
+                and s.misc_type == 0)
+    flags_mf = Array(length=6, option=lambda s: s.detonate is None
+                     and s.misc_type == 0)
+    ## end minefields
+
+    ## debris / mass packets
+    dest_planet_id = Int(10, option=lambda s: s.detonate is None
+                         and s.misc_type == 1)
+    unknown_mp = Int(6, option=lambda s: s.detonate is None
+                     and s.misc_type == 1)
+    mass_ir = Int(option=lambda s: s.detonate is None and s.misc_type == 1)
+    mass_bo = Int(option=lambda s: s.detonate is None and s.misc_type == 1)
+    mass_ge = Int(option=lambda s: s.detonate is None and s.misc_type == 1)
+    flags_mp = Int(option=lambda s: s.detonate is None and s.misc_type == 1)
+    ## end debris / mass packets
+
+    ## wormholes
+    flags_wh = Array(length=10, option=lambda s: s.detonate is None
+                     and s.misc_type == 2)
+    ## end wormholes
+
+    ## mystery trader
+    x_end = Int(option=lambda s: s.detonate is None and s.misc_type == 3)
+    y_end = Int(option=lambda s: s.detonate is None and s.misc_type == 3)
+    warp = Int(4, option=lambda s: s.detonate is None and s.misc_type == 3)
+    unknown_mt1 = Int(12, value=1, option=lambda s: s.detonate is None
+                      and s.misc_type == 3)
+    interceptions = Int(option=lambda s: s.detonate is None
+                        and s.misc_type == 3)
+    unknown_mt2 = Int(option=lambda s: s.detonate is None and s.misc_type == 3)
+    ## end mystery trader
+
+    previous_turn = Int(option=lambda s: s.quantity is None and
+                        s.detonate is None)
+
+
 # class Type3(Struct):
 #     """ Delete waypoint """
 #     type = 3
@@ -1117,22 +1180,6 @@ class Type16(Struct):
 #     u3 = Int(8)
 #     u4 = Int(8)
 #     name = CStr()
-
-
-# class Type43(Struct):
-#     """ Mass Packets / Debris / Wormholes / Mine Fields / Mystery Trader """
-#     type = 43
-
-#     # optional sizes: 2, 4, and 18
-#     unknown1 = Int()
-#     x = Int()
-#     y = Int()
-#     planet_id = Int(10)
-#     unknown2 = Int(6)
-#     mass_ir = Int()
-#     mass_bo = Int()
-#     mass_ge = Int()
-#     unknown3 = Int(32)
 
 
 # class Type28(Struct):
