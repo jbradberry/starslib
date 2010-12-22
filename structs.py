@@ -253,11 +253,17 @@ class Sequence(Field):
         self.head = head
         self._length = length
         if length is None:
-            def length(self, obj, seq=None):
-                if seq is None:
-                    return None
-                return sum(x<<(8*n) for n, x in
-                           enumerate(seq[obj.byte:obj.byte+self.head//8]))
+            if head is not None:
+                def length(self, obj, seq=None):
+                    if seq is None:
+                        return None
+                    return sum(x<<(8*n) for n, x in
+                               enumerate(seq[obj.byte:obj.byte+self.head//8]))
+            else:
+                def length(self, obj, seq=None):
+                    if seq is None:
+                        return None
+                    return (len(seq) - obj.byte) // (self.bitwidth(obj)//8)
         elif callable(length):
             def length(self, obj, seq=None):
                 return self._length(obj)
@@ -274,7 +280,7 @@ class Sequence(Field):
     def _parse_vars(self, obj, seq, vars):
         super(Sequence, self)._parse_vars(obj, seq, vars)
         vars.length = self.length(obj, seq)
-        if self._length is None:
+        if self._length is None and self.head is not None:
             obj.byte += self.head // 8
 
     def _pre_parse(self, obj, seq, vars):
@@ -307,7 +313,7 @@ class Sequence(Field):
     def _post_deparse(self, obj, vars):
         L = len(vars.value)
         vars.L = L
-        if self._length is None:
+        if self._length is None and self.head is not None:
             head = [L>>(8*n) & 0xff for n in xrange(self.head//8)]
             vars.result = head + vars.result
         return vars.result
@@ -317,8 +323,12 @@ class Sequence(Field):
             return True
         length = self.length(obj)
         if self._length is None:
-            if not 0 <= len(value) < 2**self.head:
-                raise ValidationError
+            if self.head is not None:
+                if not 0 <= len(value) < 2**self.head:
+                    raise ValidationError
+            else:
+                if not 0 <= len(value) < 2**10:
+                    raise ValidationError
         # don't worry about the basestring case; the chained setattr
         # will get it.
         elif not isinstance(self._length, basestring):
@@ -444,10 +454,19 @@ class Array(Sequence):
 
 
 class ObjArray(Array):
+    def __init__(self, **kwargs):
+        super(ObjArray, self).__init__(**kwargs)
+        self.bitwidths = self.bitwidth
+
+        def bitwidth(self, obj):
+            bw = self.bitwidths(obj)
+            return sum(x[1] for x in bw)
+
+        self.bitwidth = bitwidth.__get__(self, self.__class__)
+
     def _parse_vars(self, obj, seq, vars):
         super(ObjArray, self)._parse_vars(obj, seq, vars)
-        vars.bitwidths = vars.bitwidth
-        vars.bitwidth = sum(x[1] for x in vars.bitwidths)
+        vars.bitwidths = self.bitwidths(obj)
 
     def _post_parse(self, obj, seq, vars):
         bitwidths = vars.bitwidths
@@ -458,8 +477,7 @@ class ObjArray(Array):
 
     def _deparse_vars(self, obj, vars):
         super(ObjArray, self)._deparse_vars(obj, vars)
-        vars.bitwidths = vars.bitwidth
-        vars.bitwidth = sum(x[1] for x in vars.bitwidths)
+        vars.bitwidths = self.bitwidths(obj)
 
     def _pre_deparse(self, obj, vars):
         Sequence._pre_deparse(self, obj, vars)
@@ -471,10 +489,10 @@ class ObjArray(Array):
     def validate(self, obj, value):
         if Sequence.validate(self, obj, value):
             return True
-        bitwidth = self.bitwidth(obj)
-        if not all(all(0 <= x[k] < 2**v for k, v in bitwidth) for x in value):
+        bitwidths = self.bitwidths(obj)
+        if not all(all(0 <= x[k] < 2**v for k, v in bitwidths) for x in value):
             raise ValidationError
-        if any(set(x.iterkeys()) - set(b[0] for b in bitwidth)
+        if any(set(x.iterkeys()) - set(b[0] for b in bitwidths)
                for x in value):
             raise ValidationError
 
