@@ -1179,6 +1179,15 @@ class Type43(Struct):
                         s.detonate is None)
 
 
+class Type28(Struct):
+    """ New Turn Queue State """
+    type = 28
+
+    queue = ObjArray(length=None, head=None, bitwidth=(('quantity', 10),
+                                                       ('build_type', 6),
+                                                       ('unknown', 8),
+                                                       ('frac_complete', 8)))
+
 # class Type3(Struct):
 #     """ Delete waypoint """
 #     type = 3
@@ -1198,9 +1207,6 @@ class Type43(Struct):
 #     u3 = Int(8)
 #     u4 = Int(8)
 #     name = CStr()
-
-
-# class Type28(Struct):
 
 # class Type4(Struct):
 #     """ Add Waypoint """
