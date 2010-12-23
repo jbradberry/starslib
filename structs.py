@@ -1217,6 +1217,19 @@ class Type5(Struct):
     transport = Array(bitwidth=8, head=None, length=None)
 
 
+class Type30(Struct):
+    """ Battle plans """
+    type = 30
+
+    id = Int(8)
+    flags = Int(8)
+    u1 = Int(4, option=lambda s: not (s.flags & 64))
+    u2 = Int(4, option=lambda s: not (s.flags & 64))
+    u3 = Int(4, option=lambda s: not (s.flags & 64))
+    u4 = Int(4, option=lambda s: not (s.flags & 64))
+    name = CStr(option=lambda s: not (s.flags & 64))
+
+
 # class Type3(Struct):
 #     """ Delete waypoint """
 #     type = 3
@@ -1226,16 +1239,6 @@ class Type5(Struct):
 #     sequence_num = Int(8)
 #     unknown2 = Int(8)
 
-
-# class Type30(Struct):
-#     """ Battle plans """
-#     type = 30
-
-#     u1 = Int(8)
-#     u2 = Int(8)
-#     u3 = Int(8)
-#     u4 = Int(8)
-#     name = CStr()
 
 # class Type38(Struct):
 #     """ Player Relations """
