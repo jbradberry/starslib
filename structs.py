@@ -284,7 +284,6 @@ class Sequence(Field):
             obj.byte += self.head // 8
 
     def _pre_parse(self, obj, seq, vars):
-        super(Sequence, self)._pre_parse(obj, seq, vars)
         if vars.bitwidth % 8 != 0:
             raise ParseError
         if obj.bit != 0:
@@ -1010,7 +1009,7 @@ class Type20(Struct):
     planet_id = Int()
     order = Int(4)
     warp = Int(4)
-    unknown1 = Int(8)
+    intercept_type = Int(8)
 
 
 class Type19(Struct):
@@ -1022,7 +1021,7 @@ class Type19(Struct):
     planet_id = Int()
     order = Int(4)
     warp = Int(4)
-    unknown1 = Int(8)
+    intercept_type = Int(8)
     ir_quant = Int(12)
     ir_order = Int(4)
     bo_quant = Int(12)
@@ -1188,6 +1187,36 @@ class Type28(Struct):
                                                        ('unknown', 8),
                                                        ('frac_complete', 8)))
 
+class Type4(Struct):
+    """ Add Waypoint """
+    type = 4
+
+    fleet_id = Int()
+    sequence = Int()
+    x = Int()
+    y = Int()
+    object_id = Int()
+    order = Int(4)
+    warp = Int(4)
+    intercept_type = Int(8)
+    transport = Array(bitwidth=8, head=None, length=None)
+
+
+class Type5(Struct):
+    """ Modify Waypoint """
+    type = 5
+
+    fleet_id = Int()
+    sequence = Int()
+    x = Int()
+    y = Int()
+    object_id = Int()
+    order = Int(4)
+    warp = Int(4)
+    intercept_type = Int(8)
+    transport = Array(bitwidth=8, head=None, length=None)
+
+
 # class Type3(Struct):
 #     """ Delete waypoint """
 #     type = 3
@@ -1207,9 +1236,6 @@ class Type28(Struct):
 #     u3 = Int(8)
 #     u4 = Int(8)
 #     name = CStr()
-
-# class Type4(Struct):
-#     """ Add Waypoint """
 
 # class Type38(Struct):
 #     """ Player Relations """
