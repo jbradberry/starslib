@@ -1205,6 +1205,35 @@ class Type29(Struct):
                                                        ('unknown', 8),
                                                        ('frac_complete', 8)))
 
+
+class Type1(Struct):
+    """ Waypoint 0 Orders (1-Byte) """
+    type = 1
+
+    object_lhs = Int()
+    object_rhs = Int()
+    type_lhs = Int(4)
+    type_rhs = Int(4)
+    cargo_bits = Int(8) # ir, bo, ge, pop, fuel
+    # Note: the following are evaluated as signed ints
+    cargo = Array(head=None, bitwidth=8,
+                  length=lambda s: bin(s.cargo_bits).count('1'))
+
+
+class Type2(Struct):
+    """ Waypoint 0 Orders (2-Byte) """
+    type = 2
+
+    object_lhs = Int()
+    object_rhs = Int()
+    type_lhs = Int(4)
+    type_rhs = Int(4)
+    cargo_bits = Int(8) # ir, bo, ge, pop, fuel
+    # Note: the following are evaluated as signed ints
+    cargo = Array(head=None, bitwidth=16,
+                  length=lambda s: bin(s.cargo_bits).count('1'))
+
+
 class Type3(Struct):
     """ Delete Waypoint """
     type = 3
