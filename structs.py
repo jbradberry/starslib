@@ -1205,6 +1205,16 @@ class Type29(Struct):
                                                        ('unknown', 8),
                                                        ('frac_complete', 8)))
 
+class Type3(Struct):
+    """ Delete Waypoint """
+    type = 3
+
+    fleet_id = Int(11)
+    unknown1 = Int(5)
+    sequence = Int(8)
+    unknown2 = Int(8)
+
+
 class Type4(Struct):
     """ Add Waypoint """
     type = 4
@@ -1235,6 +1245,29 @@ class Type5(Struct):
     transport = Array(bitwidth=8, head=None, length=None)
 
 
+class Type23(Struct):
+    """ Split Fleet """
+    type = 23
+
+    fleet_id = Int(11)
+    unknown = Int(5)
+    fleet2_id = Int(11)
+    unknown2 = Int(5)
+    thirtyfour = Int(8, value=34)
+    design_bits = Int()
+    # Note: the following are interpreted as negative numbers
+    adjustment = Array(head=None, bitwidth=16,
+                       length=lambda s: bin(s.design_bits).count('1'))
+
+
+class Type24(Struct):
+    """ Original Fleet on Split """
+    type = 24
+
+    fleet_id = Int(11)
+    unknown = Int(5)
+
+
 class Type30(Struct):
     """ Battle plans """
     type = 30
@@ -1253,16 +1286,6 @@ class Type21(Struct):
     type = 21
 
     name = CStr()
-
-
-# class Type3(Struct):
-#     """ Delete waypoint """
-#     type = 3
-
-#     fleet_id = Int(9)
-#     unknown1 = Int(7)
-#     sequence_num = Int(8)
-#     unknown2 = Int(8)
 
 
 # class Type38(Struct):
