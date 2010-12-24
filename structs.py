@@ -1317,6 +1317,13 @@ class Type24(Struct):
     unknown = Int(5)
 
 
+class Type37(Struct):
+    """ Merge Fleet """
+    type = 37
+
+    fleets = Array(bitwidth=16, head=None, length=None)
+
+
 class Type30(Struct):
     """ Battle plans """
     type = 30
@@ -1335,6 +1342,19 @@ class Type21(Struct):
     type = 21
 
     name = CStr()
+
+
+# class Type31(Struct):
+#     """ Battle Recording """
+#     type = 31
+
+#     battle_id = Int(8)
+#     unknown1 = Array(bitwidth=8, length=3)
+#     participant_bits = Int()
+#     total_len = Int()
+#     planet_id = Int()
+#     x = Int()
+#     y = Int()
 
 
 # class Type38(Struct):
