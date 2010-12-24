@@ -1081,7 +1081,7 @@ class Type40(Struct):
 
 
 class Type26(Struct):
-    """ Ship & Starbase designs """
+    """ Ship & Starbase Design """
     type = 26
 
     info_level = Int(8)
@@ -1096,6 +1096,26 @@ class Type26(Struct):
                      length='slots_length',
                      option=lambda s: s.info_level > 3)
     name = CStr()
+
+
+class Type27(Struct):
+    """ New Ship & Starbase Design """
+    type = 27
+
+    info_level = Int(4)
+    player_id = Int(4)
+    index = Int(8)
+    unknown = Array(bitwidth=8, length=6, option=lambda s: s.info_level)
+    slots_length = Int(8, option=lambda s: s.info_level)
+    initial_turn = Int(option=lambda s: s.info_level)
+    total_constructed = Int(32, value=0, option=lambda s: s.info_level)
+    current_quantity = Int(32, value=0, option=lambda s: s.info_level)
+    slots = ObjArray(bitwidth=(('flags', 16),
+                               ('part_sub_id', 8),
+                               ('quantity', 8)),
+                     length='slots_length',
+                     option=lambda s: s.info_level)
+    name = CStr(option=lambda s: s.info_level)
 
 
 class Type16(Struct):
