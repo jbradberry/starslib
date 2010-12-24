@@ -722,63 +722,72 @@ class Type0(Struct):
     info = Int(option=filetypes('hst', 'xy', 'm'))
 
 
-class Type8(Struct):
-    """ Beginning of file """
-    type = 8
-    encrypted = False
+class Type1(Struct):
+    """ Waypoint 0 Orders (1-Byte) """
+    type = 1
 
-    magic = Str(length=4, value="J3J3")
-    game_id = Int(32)
-    file_ver = Int()
-    turn = Int()
-    player = Int(5)
-    salt = Int(11)
-    filetype = Int(8)
-    submitted = Bool()
-    in_use = Bool()
-    multi_turn = Bool()
-    gameover = Bool()
-    shareware = Bool()
-    unused = Int(3)
-
-    def __init__(self, sfile):
-        super(Type8, self).__init__(sfile)
-        sfile.counts.clear()
-
-    def adjust(self):
-        self.file.prng_init(self.game_id, self.turn, self.player,
-                            self.salt, self.shareware)
-        self.file.type = ftypes[self.filetype]
+    object_lhs = Int()
+    object_rhs = Int()
+    type_lhs = Int(4)
+    type_rhs = Int(4)
+    cargo_bits = Int(8) # ir, bo, ge, pop, fuel
+    # Note: the following are evaluated as signed ints
+    cargo = Array(head=None, bitwidth=8,
+                  length=lambda s: bin(s.cargo_bits).count('1'))
 
 
-class Type7(Struct):
-    """ Game definition """
-    type = 7
+class Type2(Struct):
+    """ Waypoint 0 Orders (2-Byte) """
+    type = 2
 
-    game_id = Int(32)
-    size = Int()
-    density = Int()
-    num_players = Int()
-    num_stars = Int()
-    start_distance = Int()
-    unknown1 = Int()
-    flags1 = Int(8)
-    unknown2 = Int(24)
-    req_pct_planets_owned = Int(8)
-    req_tech_level = Int(8)
-    req_tech_num_fields = Int(8)
-    req_exceeds_score = Int(8)
-    req_pct_exceeds_2nd = Int(8)
-    req_exceeds_prod = Int(8)
-    req_capships = Int(8)
-    req_highscore_year = Int(8)
-    req_num_criteria = Int(8)
-    year_declared = Int(8)
-    unknown3 = Int()
-    game_name = Str(length=32)
+    object_lhs = Int()
+    object_rhs = Int()
+    type_lhs = Int(4)
+    type_rhs = Int(4)
+    cargo_bits = Int(8) # ir, bo, ge, pop, fuel
+    # Note: the following are evaluated as signed ints
+    cargo = Array(head=None, bitwidth=16,
+                  length=lambda s: bin(s.cargo_bits).count('1'))
 
-    def adjust(self):
-        self.file.stars = self.num_stars
+
+class Type3(Struct):
+    """ Delete Waypoint """
+    type = 3
+
+    fleet_id = Int(11)
+    unknown1 = Int(5)
+    sequence = Int(8)
+    unknown2 = Int(8)
+
+
+class Type4(Struct):
+    """ Add Waypoint """
+    type = 4
+
+    fleet_id = Int()
+    sequence = Int()
+    x = Int()
+    y = Int()
+    object_id = Int()
+    order = Int(4)
+    warp = Int(4)
+    intercept_type = Int(8)
+    transport = Array(bitwidth=8, head=None, length=None)
+
+
+class Type5(Struct):
+    """ Modify Waypoint """
+    type = 5
+
+    fleet_id = Int()
+    sequence = Int()
+    x = Int()
+    y = Int()
+    object_id = Int()
+    order = Int(4)
+    warp = Int(4)
+    intercept_type = Int(8)
+    transport = Array(bitwidth=8, head=None, length=None)
 
 
 def type6_trigger(S):
@@ -865,31 +874,63 @@ class Type6(Struct):
     plural_race_name = CStr(8)
 
 
-class Type45(Struct):
-    """ Score data """
-    type = 45
+class Type7(Struct):
+    """ Game definition """
+    type = 7
 
+    game_id = Int(32)
+    size = Int()
+    density = Int()
+    num_players = Int()
+    num_stars = Int()
+    start_distance = Int()
+    unknown1 = Int()
+    flags1 = Int(8)
+    unknown2 = Int(24)
+    req_pct_planets_owned = Int(8)
+    req_tech_level = Int(8)
+    req_tech_num_fields = Int(8)
+    req_exceeds_score = Int(8)
+    req_pct_exceeds_2nd = Int(8)
+    req_exceeds_prod = Int(8)
+    req_capships = Int(8)
+    req_highscore_year = Int(8)
+    req_num_criteria = Int(8)
+    year_declared = Int(8)
+    unknown3 = Int()
+    game_name = Str(length=32)
+
+    def adjust(self):
+        self.file.stars = self.num_stars
+
+
+class Type8(Struct):
+    """ Beginning of file """
+    type = 8
+    encrypted = False
+
+    magic = Str(length=4, value="J3J3")
+    game_id = Int(32)
+    file_ver = Int()
+    turn = Int()
     player = Int(5)
-    unknown1 = Bool(value=True) # rare False?
-    f_owns_planets = Bool()
-    f_attains_tech = Bool()
-    f_exceeds_score = Bool()
-    f_exceeds_2nd = Bool()
-    f_production = Bool()
-    f_cap_ships = Bool()
-    f_high_score = Bool()
-    unknown2 = Bool(value=False) # rare True?
-    f_declared_winner = Bool()
-    unknown3 = Bool()
-    year = Int() # or rank in .m files
-    score = Int(32)
-    resources = Int(32)
-    planets = Int()
-    starbases = Int()
-    unarmed_ships = Int()
-    escort_ships = Int()
-    capital_ships = Int()
-    tech_levels = Int()
+    salt = Int(11)
+    filetype = Int(8)
+    submitted = Bool()
+    in_use = Bool()
+    multi_turn = Bool()
+    gameover = Bool()
+    shareware = Bool()
+    unused = Int(3)
+
+    def __init__(self, sfile):
+        super(Type8, self).__init__(sfile)
+        sfile.counts.clear()
+
+    def adjust(self):
+        self.file.prng_init(self.game_id, self.turn, self.player,
+                            self.salt, self.shareware)
+        self.file.type = ftypes[self.filetype]
 
 
 class Type13(Struct):
@@ -1007,38 +1048,37 @@ class Type14(Struct):
     last_scanned = Int(option=filetypes('h'))
 
 
-class Type20(Struct):
-    """ Waypoint """
-    type = 20
+class Type16(Struct):
+    """ Authoritative Fleet """
+    type = 16
 
+    fleet_id = Int(9)
+    player = Int(7)
+    player2 = Int()
+    info_level = Int(8)
+    flags = Int(8)
+    planet_id = Int()
     x = Int()
     y = Int()
-    planet_id = Int()
-    order = Int(4)
-    warp = Int(4)
-    intercept_type = Int(8)
-
-
-class Type19(Struct):
-    """ Orders-at Waypoint """
-    type = 19
-
-    x = Int()
-    y = Int()
-    planet_id = Int()
-    order = Int(4)
-    warp = Int(4)
-    intercept_type = Int(8)
-    ir_quant = Int(12)
-    ir_order = Int(4)
-    bo_quant = Int(12)
-    bo_order = Int(4)
-    ge_quant = Int(12)
-    ge_order = Int(4)
-    col_quant = Int(12)
-    col_order = Int(4)
-    fuel_quant = Int(12)
-    fuel_order = Int(4)
+    design_bits = Int()
+    count_array = Array(bitwidth=lambda s: 16 - (s.flags & 0x8),
+                        length=lambda s: bin(s.design_bits).count('1'))
+    s1 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s2 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s3 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s4 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    s5 = Int(8, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
+    ironium = Int('s1', option=lambda s: s.info_level >= 4)
+    boranium = Int('s2', option=lambda s: s.info_level >= 4)
+    germanium = Int('s3', option=lambda s: s.info_level >= 4)
+    colonists = Int('s4', option=lambda s: s.info_level >= 7)
+    fuel = Int('s5', option=lambda s: s.info_level >= 7)
+    dmg_design_bits = Int()
+    damage_amts = ObjArray(bitwidth=(('pct_of_type_damaged', 7),
+                                     ('damage', 9)),
+                           length=lambda s: bin(s.dmg_design_bits).count('1'))
+    battle_plan = Int(8)
+    queue_len = Int(8)
 
 
 class Type17(Struct):
@@ -1069,15 +1109,68 @@ class Type17(Struct):
     mass = Int(32)
 
 
-class Type40(Struct):
-    """ In-game messages """
-    type = 40
+class Type19(Struct):
+    """ Orders-at Waypoint """
+    type = 19
 
-    unknown1 = Int(32)
-    sender = Int()
-    receiver = Int()
-    unknown2 = Int()
-    text = CStr(16)
+    x = Int()
+    y = Int()
+    planet_id = Int()
+    order = Int(4)
+    warp = Int(4)
+    intercept_type = Int(8)
+    ir_quant = Int(12)
+    ir_order = Int(4)
+    bo_quant = Int(12)
+    bo_order = Int(4)
+    ge_quant = Int(12)
+    ge_order = Int(4)
+    col_quant = Int(12)
+    col_order = Int(4)
+    fuel_quant = Int(12)
+    fuel_order = Int(4)
+
+
+class Type20(Struct):
+    """ Waypoint """
+    type = 20
+
+    x = Int()
+    y = Int()
+    planet_id = Int()
+    order = Int(4)
+    warp = Int(4)
+    intercept_type = Int(8)
+
+
+class Type21(Struct):
+    """ Fleet Name """
+    type = 21
+
+    name = CStr()
+
+
+class Type23(Struct):
+    """ Split Fleet """
+    type = 23
+
+    fleet_id = Int(11)
+    unknown = Int(5)
+    fleet2_id = Int(11)
+    unknown2 = Int(5)
+    thirtyfour = Int(8, value=34)
+    design_bits = Int()
+    # Note: the following are interpreted as negative numbers
+    adjustment = Array(head=None, bitwidth=16,
+                       length=lambda s: bin(s.design_bits).count('1'))
+
+
+class Type24(Struct):
+    """ Original Fleet on Split """
+    type = 24
+
+    fleet_id = Int(11)
+    unknown = Int(5)
 
 
 class Type26(Struct):
@@ -1118,37 +1211,56 @@ class Type27(Struct):
     name = CStr(option=lambda s: s.info_level)
 
 
-class Type16(Struct):
-    """ Authoritative Fleet """
-    type = 16
+class Type28(Struct):
+    """ New Turn Queue State """
+    type = 28
 
-    fleet_id = Int(9)
-    player = Int(7)
-    player2 = Int()
-    info_level = Int(8)
-    flags = Int(8)
+    queue = ObjArray(length=None, head=None, bitwidth=(('quantity', 10),
+                                                       ('build_type', 6),
+                                                       ('unknown', 8),
+                                                       ('frac_complete', 8)))
+
+
+class Type29(Struct):
+    """ Update Queue """
+    type = 29
+
     planet_id = Int()
-    x = Int()
-    y = Int()
-    design_bits = Int()
-    count_array = Array(bitwidth=lambda s: 16 - (s.flags & 0x8),
-                        length=lambda s: bin(s.design_bits).count('1'))
-    s1 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
-    s2 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
-    s3 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
-    s4 = Int(2, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
-    s5 = Int(8, choices=BITWIDTH_CHOICES, option=lambda s: s.info_level >= 4)
-    ironium = Int('s1', option=lambda s: s.info_level >= 4)
-    boranium = Int('s2', option=lambda s: s.info_level >= 4)
-    germanium = Int('s3', option=lambda s: s.info_level >= 4)
-    colonists = Int('s4', option=lambda s: s.info_level >= 7)
-    fuel = Int('s5', option=lambda s: s.info_level >= 7)
-    dmg_design_bits = Int()
-    damage_amts = ObjArray(bitwidth=(('pct_of_type_damaged', 7),
-                                     ('damage', 9)),
-                           length=lambda s: bin(s.dmg_design_bits).count('1'))
-    battle_plan = Int(8)
-    queue_len = Int(8)
+    queue = ObjArray(length=None, head=None, bitwidth=(('quantity', 10),
+                                                       ('build_type', 6),
+                                                       ('unknown', 8),
+                                                       ('frac_complete', 8)))
+
+
+class Type30(Struct):
+    """ Battle plans """
+    type = 30
+
+    id = Int(8)
+    flags = Int(8)
+    u1 = Int(4, option=lambda s: not (s.flags & 64))
+    u2 = Int(4, option=lambda s: not (s.flags & 64))
+    u3 = Int(4, option=lambda s: not (s.flags & 64))
+    u4 = Int(4, option=lambda s: not (s.flags & 64))
+    name = CStr(option=lambda s: not (s.flags & 64))
+
+
+class Type37(Struct):
+    """ Merge Fleet """
+    type = 37
+
+    fleets = Array(bitwidth=16, head=None, length=None)
+
+
+class Type40(Struct):
+    """ In-game messages """
+    type = 40
+
+    unknown1 = Int(32)
+    sender = Int()
+    receiver = Int()
+    unknown2 = Int()
+    text = CStr(16)
 
 
 class Type43(Struct):
@@ -1205,143 +1317,31 @@ class Type43(Struct):
                         s.detonate is None)
 
 
-class Type28(Struct):
-    """ New Turn Queue State """
-    type = 28
+class Type45(Struct):
+    """ Score data """
+    type = 45
 
-    queue = ObjArray(length=None, head=None, bitwidth=(('quantity', 10),
-                                                       ('build_type', 6),
-                                                       ('unknown', 8),
-                                                       ('frac_complete', 8)))
-
-
-class Type29(Struct):
-    """ Update Queue """
-    type = 29
-
-    planet_id = Int()
-    queue = ObjArray(length=None, head=None, bitwidth=(('quantity', 10),
-                                                       ('build_type', 6),
-                                                       ('unknown', 8),
-                                                       ('frac_complete', 8)))
-
-
-class Type1(Struct):
-    """ Waypoint 0 Orders (1-Byte) """
-    type = 1
-
-    object_lhs = Int()
-    object_rhs = Int()
-    type_lhs = Int(4)
-    type_rhs = Int(4)
-    cargo_bits = Int(8) # ir, bo, ge, pop, fuel
-    # Note: the following are evaluated as signed ints
-    cargo = Array(head=None, bitwidth=8,
-                  length=lambda s: bin(s.cargo_bits).count('1'))
-
-
-class Type2(Struct):
-    """ Waypoint 0 Orders (2-Byte) """
-    type = 2
-
-    object_lhs = Int()
-    object_rhs = Int()
-    type_lhs = Int(4)
-    type_rhs = Int(4)
-    cargo_bits = Int(8) # ir, bo, ge, pop, fuel
-    # Note: the following are evaluated as signed ints
-    cargo = Array(head=None, bitwidth=16,
-                  length=lambda s: bin(s.cargo_bits).count('1'))
-
-
-class Type3(Struct):
-    """ Delete Waypoint """
-    type = 3
-
-    fleet_id = Int(11)
-    unknown1 = Int(5)
-    sequence = Int(8)
-    unknown2 = Int(8)
-
-
-class Type4(Struct):
-    """ Add Waypoint """
-    type = 4
-
-    fleet_id = Int()
-    sequence = Int()
-    x = Int()
-    y = Int()
-    object_id = Int()
-    order = Int(4)
-    warp = Int(4)
-    intercept_type = Int(8)
-    transport = Array(bitwidth=8, head=None, length=None)
-
-
-class Type5(Struct):
-    """ Modify Waypoint """
-    type = 5
-
-    fleet_id = Int()
-    sequence = Int()
-    x = Int()
-    y = Int()
-    object_id = Int()
-    order = Int(4)
-    warp = Int(4)
-    intercept_type = Int(8)
-    transport = Array(bitwidth=8, head=None, length=None)
-
-
-class Type23(Struct):
-    """ Split Fleet """
-    type = 23
-
-    fleet_id = Int(11)
-    unknown = Int(5)
-    fleet2_id = Int(11)
-    unknown2 = Int(5)
-    thirtyfour = Int(8, value=34)
-    design_bits = Int()
-    # Note: the following are interpreted as negative numbers
-    adjustment = Array(head=None, bitwidth=16,
-                       length=lambda s: bin(s.design_bits).count('1'))
-
-
-class Type24(Struct):
-    """ Original Fleet on Split """
-    type = 24
-
-    fleet_id = Int(11)
-    unknown = Int(5)
-
-
-class Type37(Struct):
-    """ Merge Fleet """
-    type = 37
-
-    fleets = Array(bitwidth=16, head=None, length=None)
-
-
-class Type30(Struct):
-    """ Battle plans """
-    type = 30
-
-    id = Int(8)
-    flags = Int(8)
-    u1 = Int(4, option=lambda s: not (s.flags & 64))
-    u2 = Int(4, option=lambda s: not (s.flags & 64))
-    u3 = Int(4, option=lambda s: not (s.flags & 64))
-    u4 = Int(4, option=lambda s: not (s.flags & 64))
-    name = CStr(option=lambda s: not (s.flags & 64))
-
-
-class Type21(Struct):
-    """ Fleet Name """
-    type = 21
-
-    name = CStr()
+    player = Int(5)
+    unknown1 = Bool(value=True) # rare False?
+    f_owns_planets = Bool()
+    f_attains_tech = Bool()
+    f_exceeds_score = Bool()
+    f_exceeds_2nd = Bool()
+    f_production = Bool()
+    f_cap_ships = Bool()
+    f_high_score = Bool()
+    unknown2 = Bool(value=False) # rare True?
+    f_declared_winner = Bool()
+    unknown3 = Bool()
+    year = Int() # or rank in .m files
+    score = Int(32)
+    resources = Int(32)
+    planets = Int()
+    starbases = Int()
+    unarmed_ships = Int()
+    escort_ships = Int()
+    capital_ships = Int()
+    tech_levels = Int()
 
 
 # class Type31(Struct):
