@@ -217,11 +217,14 @@ class Int(Field):
         obj.prev, obj.bit = value, vars.bitwidth
         vars.result = result
 
+    def clean(self, value):
+        return int(value)
+
     def validate(self, obj, value):
         if super(Int, self).validate(obj, value):
             return True
-        if not isinstance(value, numbers.Integral):
-            raise ValidationError("%s" % value)
+#         if not isinstance(value, numbers.Integral):
+#             raise ValidationError("%s" % value)
         if self.max is not None and value > self.max:
             raise ValidationError("%s: %s > %s" % (self.name, value, self.max))
         if not 0 <= value < 2**self.bitwidth(obj):
@@ -810,7 +813,7 @@ class Type6(Struct):
     cur_electronics = Int(8, option=type6_trigger)
     cur_biotech = Int(8, option=type6_trigger)
     # no idea yet
-    whatever = Int(30*8, option=type6_trigger)
+    whatever = Array(bitwidth=8, length=30, option=type6_trigger)
     col_per_res = Int(8, option=type6_trigger)
     res_per_10f = Int(8, option=type6_trigger)
     f_build_res = Int(8, option=type6_trigger)
@@ -851,7 +854,7 @@ class Type6(Struct):
     f7 = Bool(option=type6_trigger)
     f_1kTlessGe = Bool(option=type6_trigger)
     # no idea yet
-    whatever2 = Int(30*8, option=type6_trigger)
+    whatever2 = Array(bitwidth=8, length=30, option=type6_trigger)
     unknown5 = Array(8, option=type6_trigger)
     # end optional section
     race_name = CStr(8)
