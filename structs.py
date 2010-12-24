@@ -1187,6 +1187,17 @@ class Type28(Struct):
                                                        ('unknown', 8),
                                                        ('frac_complete', 8)))
 
+
+class Type29(Struct):
+    """ Update Queue """
+    type = 29
+
+    planet_id = Int()
+    queue = ObjArray(length=None, head=None, bitwidth=(('quantity', 10),
+                                                       ('build_type', 6),
+                                                       ('unknown', 8),
+                                                       ('frac_complete', 8)))
+
 class Type4(Struct):
     """ Add Waypoint """
     type = 4
