@@ -218,6 +218,8 @@ class Int(Field):
         vars.result = result
 
     def clean(self, value):
+        if value is None:
+            return None
         return int(value)
 
     def validate(self, obj, value):
@@ -246,6 +248,8 @@ class Bool(Int):
         return bool(vars.result)
 
     def clean(self, value):
+        if value is None:
+            return None
         return bool(value)
 
 
