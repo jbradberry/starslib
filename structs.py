@@ -1230,6 +1230,13 @@ class Type30(Struct):
     name = CStr(option=lambda s: not (s.flags & 64))
 
 
+class Type21(Struct):
+    """ Fleet Name """
+    type = 21
+
+    name = CStr()
+
+
 # class Type3(Struct):
 #     """ Delete waypoint """
 #     type = 3
