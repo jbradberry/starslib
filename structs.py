@@ -333,7 +333,7 @@ class Sequence(Field):
                 if not 0 <= len(value) < 2**self.head:
                     raise ValidationError
             else:
-                if not 0 <= len(value) < 2**10:
+                if not 0 <= len(value) < 1024:
                     raise ValidationError
         # don't worry about the basestring case; the chained setattr
         # will get it.
@@ -610,10 +610,10 @@ class StarsFile(object):
 
     def prng_init(self, uid, turn, player, salt, flag):
         i, j = (salt>>5) & 0x1f, salt & 0x1f
-        if salt < (1<<10):
-            i += (1<<5)
+        if salt < 0x400:
+            i += 0x20
         else:
-            j += (1<<5)
+            j += 0x20
         self.hi, self.lo = self.prime[i], self.prime[j]
 
         seed = ((player%4)+1) * ((uid%4)+1) * ((turn%4)+1) + flag
@@ -621,11 +621,11 @@ class StarsFile(object):
             burn = self.prng()
 
     def prng(self):
-        self.lo = (0x7fffffab * int(self.lo/-53668) + 40014 * self.lo)%(1<<32)
-        if self.lo >= (1<<31): self.lo += 0x7fffffab - (1<<32)
-        self.hi = (0x7fffff07 * int(self.hi/-52774) + 40692 * self.hi)%(1<<32)
-        if self.hi >= (1<<31): self.hi += 0x7fffff07 - (1<<32)
-        return (self.lo - self.hi) % (1<<32)
+        self.lo = (0x7fffffab * int(self.lo/-53668) + 40014 * self.lo) & 0xffffffff
+        if self.lo >= 0x80000000: self.lo -= 0x80000055
+        self.hi = (0x7fffff07 * int(self.hi/-52774) + 40692 * self.hi) & 0xffffffff
+        if self.hi >= 0x80000000: self.hi -= 0x800000f9
+        return (self.lo - self.hi) & 0xffffffff
 
     def crypt(self, seq):
         L = len(seq)
