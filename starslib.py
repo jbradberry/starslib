@@ -17,19 +17,19 @@ prime = (3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
 
 def prng():
     global hi, lo
-    lo = (0x7fffffab * int(lo / -53668) + 40014 * lo) % (1<<32)
-    if lo >= (1<<31): lo += 0x7fffffab - (1<<32)
-    hi = (0x7fffff07 * int(hi / -52774) + 40692 * hi) % (1<<32)
-    if hi >= (1<<31): hi += 0x7fffff07 - (1<<32)
-    return (lo - hi) % (1<<32)
+    lo = (0x7fffffab * int(lo / -53668) + 40014 * lo) & 0xffffffff
+    if lo >= 0x80000000: lo -= 0x80000055
+    hi = (0x7fffff07 * int(hi / -52774) + 40692 * hi) & 0xffffffff
+    if hi >= 0x80000000: hi -= 0x800000f9
+    return (lo - hi) & 0xffffffff
 
 def prng_init(flag, player, turn, salt, uid):
     global hi, lo
     i, j = (salt>>5) & 0x1f, salt & 0x1f
-    if salt < (1<<10):
-        i += (1<<5)
+    if salt < 0x400:
+        i += 0x20
     else:
-        j += (1<<5)
+        j += 0x20
     hi, lo = prime[i], prime[j]
 
     seed = ((player%4)+1) * ((uid%4)+1) * ((turn%4)+1) + flag
@@ -102,72 +102,6 @@ process = {-1: ixy,
            0: eof,
            8: bof}
 
-### Down the rabbit hole ###
-
-
-class BOF(object):
-    slots = ('magic', 'game_id', 'file_version', 'turn',
-             'player', 'salt', 'filetype', 'done', 'in_use',
-             'multiyear', 'gameover', 'shareware', 'other',)
-
-
-class Universe(object):
-    @property
-    def data(self):
-        pass
-
-    @property
-    def data(self, lst):
-        self.game_id = uint(lst[0:4])
-        self.size = uint(lst[4:6])
-        self.density = uint(lst[6:8])
-        self.num_players = uint(lst[8:10])
-        self.num_stars = uint(lst[10:12])
-        self.positions = uint(lst[12:14])
-        self.flags = lst[16]
-        self.pcnt_planets = lst[20]
-        self.tech_levels = lst[21]
-        self.num_fields = lst[22]
-        self.score = lst[23]
-        self.exceed_second = lst[24]
-        self.production = lst[25]
-        self.capships = lst[26]
-        self.highscore = lst[27]
-        self.num_criteria = lst[28]
-        self.winner_decl = lst[29]
-        self.game_name = ''.join(map(chr, lst[32:]))
-        # size, density, positions, max_minrls, slow_tech, acc_bbs,
-        # no_rand, comp_alliance, pps, clumping, players
-        # victory conditions:
-        # owns % planets, attains tech # in # fields, score > #,
-        # exceed 2nd place by %, production > #, # cap ships,
-        # highest score after # yrs, meet # criteria, # yrs must pass
-
-
-class Star(object):
-    @property
-    def data(self):
-        tmp = (self.index<<22) + (self.y<<10) + self.x
-        return struct.unpack("4B", struct.pack("I", tmp))
-
-    @data.setter
-    def data(self, lst):
-        tmp = struct.unpack("I", struct.pack("4B", *lst))[0]
-        # this is actually dx, add the previous x value to convert to x.
-        self.x = (tmp & 0x000003ff)
-        self.y = (tmp & 0x003ffc00)>>10
-        self.index = (tmp & 0xffc00000)>>22
-
-def star_creator(start=1000):
-    def _star(data):
-        obj = Star()
-        obj.data = data
-        obj.x += start
-        start = obj.x
-        return obj
-    return _star
-
-
 def parse(data):
     index, head = 0, True
     while index < len(data):
@@ -186,6 +120,7 @@ def parse(data):
             if stars == 0: head = True
         if stype == 7:
             head, stars = False, buf[10] + 256*buf[11]
+
 
 if __name__ == '__main__':
     with open(sys.argv[1], 'rb') as f:
