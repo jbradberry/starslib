@@ -1,5 +1,6 @@
-from __future__ import with_statement
-import sys, struct
+import sys
+
+import struct
 
 with open(sys.argv[1]) as f:
     data = f.read()

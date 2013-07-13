@@ -1,5 +1,5 @@
-from __future__ import with_statement
-import sys, getopt
+import sys
+import getopt
 
 import structs
 

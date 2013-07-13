@@ -1,5 +1,7 @@
-from __future__ import division, with_statement
-import sys, struct
+from __future__ import division
+import sys
+
+import struct
 
 hi, lo = 0, 0 # really a 64-bit state variable
 

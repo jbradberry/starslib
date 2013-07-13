@@ -1,6 +1,7 @@
-from __future__ import division, with_statement
+from __future__ import division
 from bisect import bisect
-import sys, struct
+import sys
+import struct
 import numbers
 
 
