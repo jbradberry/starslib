@@ -671,8 +671,6 @@ class StarsFile(object):
             if S.encrypted:
                 buf = self.crypt(buf)
             S.bytes = buf
-#             if buf != S.bytes:
-#                 raise Exception("%s != %s" % (buf, S.bytes))
             S.adjust()
             index += size
 
