@@ -2,11 +2,11 @@ import sys
 import os
 import re
 
-import structs
+from starslib import base
 
 starsRE = re.compile('.*\.([hmxr]{1}[0-9]{1,2}|xy|hst)')
 
-foo = structs.StarsFile()
+foo = base.StarsFile()
 
 for root, dirs, files in os.walk(sys.argv[1]):
     for fname in files:

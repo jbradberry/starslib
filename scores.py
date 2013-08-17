@@ -1,7 +1,7 @@
 import sys
 import getopt
 
-import structs
+from starslib import base
 
 opts, files = getopt.getopt(sys.argv[1:], '', ['prefix='])
 
@@ -12,7 +12,7 @@ for o, a in opts:
 
 sfiles = []
 for fname in files:
-    sfiles.append(structs.StarsFile())
+    sfiles.append(base.StarsFile())
     with open(fname, 'r') as f:
         sfiles[-1].bytes = f.read()
 
