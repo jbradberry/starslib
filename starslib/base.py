@@ -76,22 +76,26 @@ class Field(object):
 
         self._bitwidth = bitwidth
         if callable(bitwidth):
-            def bitwidth(self, obj):
-                return self._bitwidth(obj)
+            self.bitwidth = self._callable_bitwidth
         elif isinstance(bitwidth, basestring):
             self.references.append([bitwidth, 'bitwidth'])
-            def bitwidth(self, obj):
-                return self._bitwidth.get_value(obj)
+            self.bitwidth = self._ref_bitwidth
         else:
-            def bitwidth(self, obj):
-                return self._bitwidth
-
-        self.bitwidth = bitwidth.__get__(self, self.__class__)
+            self.bitwidth = self._const_bitwidth
 
         self.value = value
         self.max = max
         self.choices = choices
         self.option = option
+
+    def _callable_bitwidth(self, obj):
+        return self._bitwidth(obj)
+
+    def _ref_bitwidth(self, obj):
+        return self._bitwidth.get_value(obj)
+
+    def _const_bitwidth(self, obj):
+        return self._bitwidth
 
     def __cmp__(self, other):
         return cmp(self._counter, other._counter)
@@ -262,28 +266,36 @@ class Sequence(Field):
         self._length = length
         if length is None:
             if head is not None:
-                def length(self, obj, seq=None):
-                    if seq is None:
-                        return None
-                    return sum(x<<(8*n) for n, x in
-                               enumerate(seq[obj.byte:obj.byte+self.head//8]))
+                self.length = self._head_length
             else:
-                def length(self, obj, seq=None):
-                    if seq is None:
-                        return None
-                    return (len(seq) - obj.byte) // (self.bitwidth(obj)//8)
+                self.length = self._remainder_length
         elif callable(length):
-            def length(self, obj, seq=None):
-                return self._length(obj)
+            self.length = self._callable_length
         elif isinstance(length, basestring):
             self.references.append([length, 'length'])
-            def length(self, obj, seq=None):
-                return self._length.get_value(obj)
+            self.length = self._ref_length
         else:
-            def length(self, obj, seq=None):
-                return self._length
+            self.length = self._const_length
 
-        self.length = length.__get__(self, self.__class__)
+    def _head_length(self, obj, seq=None):
+        if seq is None:
+            return None
+        return sum(x<<(8*n) for n, x in
+                   enumerate(seq[obj.byte:obj.byte+self.head//8]))
+
+    def _remainder_length(self, obj, seq=None):
+        if seq is None:
+            return None
+        return (len(seq) - obj.byte) // (self.bitwidth(obj) // 8)
+
+    def _callable_length(self, obj, seq=None):
+        return self._length(obj)
+
+    def _ref_length(self, obj, seq=None):
+        return self._length.get_value(obj)
+
+    def _const_length(self, obj, seq=None):
+        return self._length
 
     def _parse_vars(self, obj, seq, vars):
         super(Sequence, self)._parse_vars(obj, seq, vars)
@@ -464,12 +476,10 @@ class ObjArray(Array):
     def __init__(self, **kwargs):
         super(ObjArray, self).__init__(**kwargs)
         self.bitwidths = self.bitwidth
+        self.bitwidth = self._inner_bitwidths
 
-        def bitwidth(self, obj):
-            bw = self.bitwidths(obj)
-            return sum(x[1] for x in bw)
-
-        self.bitwidth = bitwidth.__get__(self, self.__class__)
+    def _inner_bitwidths(self, obj):
+        return sum(bw for name, bw in self.bitwidths(obj))
 
     def _parse_vars(self, obj, seq, vars):
         super(ObjArray, self)._parse_vars(obj, seq, vars)
