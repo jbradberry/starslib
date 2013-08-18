@@ -18,16 +18,31 @@ class ParseError(StarsError):
 
 
 class Value(object):
+    """An accessor that is attached to a Struct class as a proxy for a Field.
+
+    This is a descriptor (getter/setter) that gets an instance
+    attached as a class attribute to a Struct subclass at
+    class-construction time, that has access to the Field that it
+    represents. It calls its Field's methods to do the cleaning,
+    validation, and updating of related fields.
+    """
+
     def __init__(self, field):
         self.field = field
 
     def __get__(self, obj, type=None):
         if obj is None:
             raise AttributeError
+        # A field is dynamic if another field has a reference to it.
         if self.field.dynamic:
             field, t = self.field.dynamic
+            # Fields that are involved in a relationship provide a method
+            # beginning with 'value_' to report the current value of the
+            # desired attribute.
             update = getattr(field, 'value_'+t)(obj)
             self.field.set_value(obj, update)
+        # A field has references if some attribute of it, such as bitwidth,
+        # is stored in another field.
         for ref, t in self.field.references:
             update = getattr(self.field, 'value_'+t)(obj)
             ref.set_value(obj, update, True)
@@ -57,17 +72,35 @@ def make_contrib(new_cls, func=None):
 class FieldBase(type):
     def __new__(cls, names, bases, attrs):
         new_cls = super(FieldBase, cls).__new__(cls, names, bases, attrs)
-        new_cls.contribute_to_class = make_contrib(new_cls,
-            attrs.get('contribute_to_class'))
+        new_cls.contribute_to_class = make_contrib(
+            new_cls, attrs.get('contribute_to_class'))
         return new_cls
 
 
 class Field(object):
+    """A data member on a Struct.
+
+    bitwidth: Specifies the number of bits to be consumed to populate
+    this field.
+
+    value: if non-None, the value that this field must always contain
+
+    max: the maximum integer value this field may contain
+
+    choices: specify the enumerated values this field may contain
+
+    option: this field is optional, and is only present when option
+    evaluates as True
+    """
+
     __metaclass__ = FieldBase
 
     counter = 0
     def __init__(self, bitwidth=16, value=None, max=None,
                  choices=None, option=None, **kwargs):
+        """
+        """
+
         self._counter = Field.counter
         Field.counter += 1
 
@@ -259,6 +292,21 @@ class Bool(Int):
 
 
 class Sequence(Field):
+    """A field that stores some dynamic sequence of values.
+
+    head: denotes some number of bits at the beginning of the
+    bitstream that stores the length information. Must be a multiple
+    of 8.
+
+    length: an externally specified number of items for the
+    sequence. May be a fixed number, a callable, or a string which
+    encodes a reference to another field which stores the length. Only
+    specified if head is None. If length is then also None, this
+    generally means to consume all remaining bytes in the sequence.
+
+    bitwidth: the number of bits each element of the sequence consumes
+    """
+
     def __init__(self, head=None, length=None, bitwidth=8, **kwargs):
         kwargs.update(bitwidth=bitwidth)
         super(Sequence, self).__init__(**kwargs)
@@ -407,6 +455,7 @@ class CStr(Str):
         return len(value) if value is not None else None
 
     def decompress(self, lst):
+        # break lst up into a sequence of 4-bit nibbles
         tmp = ((x>>i) & 0xf for x in lst for i in (4,0))
         result = []
         for x in tmp:
@@ -656,6 +705,8 @@ class StarsFile(object):
         seq = []
         for S in self.structs:
             if S.type is not None:
+                # for non-star definition structs, the first 16 bits
+                # are 6 bits of type and 10 bits of length
                 L = len(S.bytes)
                 seq.extend((L & 0xff, S.type<<2 | L>>8))
             seq.extend(self.crypt(S.bytes) if S.encrypted else S.bytes)
@@ -671,6 +722,8 @@ class StarsFile(object):
             if self.stars > 0:
                 stype, size = None, 4
             else:
+                # for non-star definition structs, the first 16 bits
+                # are 6 bits of type and 10 bits of length
                 hdr = struct.unpack("H", data[index:index+2])[0]
                 stype, size = (hdr & 0xfc00)>>10, hdr & 0x03ff
                 index += 2
@@ -940,6 +993,13 @@ class Type8(Struct):
         self.file.prng_init(self.game_id, self.turn, self.player,
                             self.salt, self.shareware)
         self.file.type = ftypes[self.filetype]
+
+
+# class Type12(Struct):
+#     """ Internal Messages """
+#     type = 12
+
+#     messages = ObjArray(head=None, length=None, bitwidth=)
 
 
 class Type13(Struct):
