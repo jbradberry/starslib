@@ -457,7 +457,7 @@ class Array(Sequence):
             return None
         if not value:
             return 0
-        bitwidth = max(0 if x == 0 else len(bin(x)) - 2 for x in value)
+        return max(0 if x == 0 else len(bin(x)) - 2 for x in value)
 
 
 class ObjArray(Array):
