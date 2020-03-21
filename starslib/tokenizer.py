@@ -38,7 +38,7 @@ def prng_init(flag, player, turn, salt, uid):
     #print hex(seed)
     for i in xrange(seed):
         #print hex(lo), hex(hi)
-        burn = prng()
+        prng()  # burn
     #print hex(lo), hex(hi)
 
 def crypt(lst):

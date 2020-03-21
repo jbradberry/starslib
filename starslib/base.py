@@ -1,8 +1,6 @@
 from __future__ import division
 from bisect import bisect
-import sys
 import struct
-import numbers
 
 
 class StarsError(Exception):
@@ -240,7 +238,7 @@ class Int(Field):
                                     (2**vars.bitwidth - 1)) << acc_bit
                     obj.bit += vars.bitwidth
                     vars.bitwidth = 0
-        except IndexError, e:
+        except IndexError:
             raise ParseError("%s %s: %s > %s" % (self.struct.__name__,
                                                  seq, obj.byte, len(seq)))
 
@@ -263,8 +261,6 @@ class Int(Field):
     def validate(self, obj, value):
         if super(Int, self).validate(obj, value):
             return True
-#         if not isinstance(value, numbers.Integral):
-#             raise ValidationError("%s" % value)
         if self.max is not None and value > self.max:
             raise ValidationError("%s: %s > %s" % (self.name, value, self.max))
         if not 0 <= value < 2**self.bitwidth(obj):
@@ -678,7 +674,7 @@ class StarsFile(object):
 
         seed = ((player%4)+1) * ((uid%4)+1) * ((turn%4)+1) + flag
         for i in xrange(seed):
-            burn = self.prng()
+            self.prng()
 
     def prng(self):
         self.lo = (0x7fffffab * int(self.lo/-53668) + 40014 * self.lo) & 0xffffffff
