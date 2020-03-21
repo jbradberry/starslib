@@ -551,7 +551,7 @@ class ObjArray(Array):
 
     def _post_parse(self, obj, seq, vars):
         bitwidths = vars.bitwidths
-        bw = [(b[0], b[1], sum((0,) + zip(*bitwidths)[1][:i]))
+        bw = [(b[0], b[1], sum([0] + [v for _, v in bitwidths][:i]))
               for i, b in enumerate(bitwidths)]
         return [dict((k, (x>>o)&(2**b-1)) for k, b, o in bw)
                 for x in vars.result]
@@ -563,7 +563,7 @@ class ObjArray(Array):
     def _pre_deparse(self, obj, vars):
         Sequence._pre_deparse(self, obj, vars)
         bitwidths = vars.bitwidths
-        bw = [(b[0], b[1], sum((0,) + zip(*bitwidths)[1][:i]))
+        bw = [(b[0], b[1], sum([0] + [v for _, v in bitwidths][:i]))
               for i, b in enumerate(bitwidths)]
         vars.value = [sum(x[k]<<o for k, b, o in bw) for x in vars.value]
 
