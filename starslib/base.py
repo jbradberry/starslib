@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from bisect import bisect
 import struct
+
 import six
 from six.moves import map
 from six.moves import range
@@ -131,8 +132,23 @@ class Field(six.with_metaclass(FieldBase)):
     def _const_bitwidth(self, obj):
         return self._bitwidth
 
-    def __cmp__(self, other):
-        return cmp(self._counter, other._counter)
+    def __lt__(self, other):
+        return self._counter < other._counter
+
+    def __le__(self, other):
+        return self._counter <= other._counter
+
+    def __eq__(self, other):
+        return self._counter == other._counter
+
+    def __ne__(self, other):
+        return self._counter != other._counter
+
+    def __gt__(self, other):
+        return self._counter > other._counter
+
+    def __ge__(self, other):
+        return self._counter >= other._counter
 
     def contribute_to_class(self, cls, name):
         self.name = name
