@@ -1,7 +1,9 @@
-import sys
+from __future__ import absolute_import
 import getopt
+import sys
 
 from starslib import base
+
 
 opts, files = getopt.getopt(sys.argv[1:], '', ['prefix='])
 
@@ -37,5 +39,5 @@ year = max(scores.keys())
 for i, fext in enumerate(('score', 'resources', 'planets', 'starbases',
                           'unarmed', 'escorts', 'capital', 'tech')):
     with open(prefix+fext, 'a') as f:
-        line = ' '.join(str(v[i]) for k, v in sorted(scores[year].iteritems()))
+        line = ' '.join(str(v[i]) for k, v in sorted(scores[year].items()))
         f.write("%s: %s\n" % (2400+year, line))

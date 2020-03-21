@@ -1,5 +1,9 @@
+from __future__ import absolute_import
 from __future__ import division
+from __future__ import print_function
 import sys
+
+from six.moves import range
 
 import struct
 
@@ -36,7 +40,7 @@ def prng_init(flag, player, turn, salt, uid):
 
     seed = ((player%4)+1) * ((uid%4)+1) * ((turn%4)+1) + flag
     #print hex(seed)
-    for i in xrange(seed):
+    for i in range(seed):
         #print hex(lo), hex(hi)
         prng()  # burn
     #print hex(lo), hex(hi)
@@ -65,7 +69,7 @@ def decompress(lst):
         if 0x0 <= x <= 0xA:
             C = top[x]
         elif 0xB <= x <= 0xE:
-            x = ((x-0xB)<<4) + tmp.next()
+            x = ((x-0xB)<<4) + next(tmp)
             if x < 0x1A:
                 C = chr(x + 0x41)
             elif x < 0x24:
@@ -74,7 +78,7 @@ def decompress(lst):
                 C = top[x - 0x19]
         elif x == 0xF:
             try:
-                C = chr(tmp.next() + (tmp.next()<<4))
+                C = chr(next(tmp) + (next(tmp)<<4))
             except StopIteration:
                 break
         result.append(C)
@@ -129,4 +133,4 @@ if __name__ == '__main__':
         data = parse(f.read())
 
     for field in data:
-        print field
+        print(field)

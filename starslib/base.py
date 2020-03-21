@@ -1,6 +1,11 @@
+from __future__ import absolute_import
 from __future__ import division
 from bisect import bisect
 import struct
+import six
+from six.moves import map
+from six.moves import range
+from six.moves import zip
 
 
 class StarsError(Exception):
@@ -75,7 +80,7 @@ class FieldBase(type):
         return new_cls
 
 
-class Field(object):
+class Field(six.with_metaclass(FieldBase)):
     """A data member on a Struct.
 
     bitwidth: Specifies the number of bits to be consumed to populate
@@ -90,8 +95,6 @@ class Field(object):
     option: this field is optional, and is only present when option
     evaluates as True
     """
-
-    __metaclass__ = FieldBase
 
     counter = 0
     def __init__(self, bitwidth=16, value=None, max=None,
@@ -108,7 +111,7 @@ class Field(object):
         self._bitwidth = bitwidth
         if callable(bitwidth):
             self.bitwidth = self._callable_bitwidth
-        elif isinstance(bitwidth, basestring):
+        elif isinstance(bitwidth, six.string_types):
             self.references.append([bitwidth, 'bitwidth'])
             self.bitwidth = self._ref_bitwidth
         else:
@@ -315,7 +318,7 @@ class Sequence(Field):
                 self.length = self._remainder_length
         elif callable(length):
             self.length = self._callable_length
-        elif isinstance(length, basestring):
+        elif isinstance(length, six.string_types):
             self.references.append([length, 'length'])
             self.length = self._ref_length
         else:
@@ -358,7 +361,7 @@ class Sequence(Field):
 
     def _parse(self, obj, seq, vars):
         result = seq[obj.byte:obj.byte + vars.length * vars.bitwidth//8]
-        result = zip(*(iter(result),) * (vars.bitwidth//8))
+        result = list(zip(*(iter(result),) * (vars.bitwidth//8)))
         result = [sum(x<<(8*n) for n, x in enumerate(b)) for b in result]
         obj.byte += vars.length * vars.bitwidth//8
         vars.result = result
@@ -371,13 +374,13 @@ class Sequence(Field):
 
     def _deparse(self, obj, vars):
         vars.result = [x>>(8*n) & 0xff for x in vars.value
-                       for n in xrange(vars.bitwidth//8)]
+                       for n in range(vars.bitwidth//8)]
 
     def _post_deparse(self, obj, vars):
         L = len(vars.value)
         vars.L = L
         if self._length is None and self.head is not None:
-            head = [L>>(8*n) & 0xff for n in xrange(self.head//8)]
+            head = [L>>(8*n) & 0xff for n in range(self.head//8)]
             vars.result = head + vars.result
         return vars.result
 
@@ -394,7 +397,7 @@ class Sequence(Field):
                     raise ValidationError
         # don't worry about the basestring case; the chained setattr
         # will get it.
-        elif not isinstance(self._length, basestring):
+        elif not isinstance(self._length, six.string_types):
             if len(value) != length:
                 raise ValidationError
 
@@ -412,12 +415,12 @@ class Str(Sequence):
         return ''.join(map(chr, vars.result))
 
     def _pre_deparse(self, obj, vars):
-        vars.value = map(ord, vars.value)
+        vars.value = list(map(ord, vars.value))
 
     def validate(self, obj, value):
         if super(Str, self).validate(obj, value):
             return True
-        if not isinstance(value, basestring):
+        if not isinstance(value, six.string_types):
             raise ValidationError
 
 
@@ -458,7 +461,7 @@ class CStr(Str):
             if 0x0 <= x <= 0xA:
                 C = self.top[x]
             elif 0xB <= x <= 0xE:
-                x = ((x-0xB)<<4) + tmp.next()
+                x = ((x-0xB)<<4) + next(tmp)
                 if x < 0x1A:
                     C = chr(x + 0x41)
                 elif x < 0x24:
@@ -467,7 +470,7 @@ class CStr(Str):
                     C = self.top[x - 0x19]
             elif x == 0xF:
                 try:
-                    C = chr(tmp.next() + (tmp.next()<<4))
+                    C = chr(next(tmp) + (next(tmp)<<4))
                 except StopIteration:
                     break
             result.append(C)
@@ -493,7 +496,7 @@ class CStr(Str):
                     result.extend((0xF, tmp & 0xF, tmp>>4))
         if len(result) % 2 != 0:
             result.append(0xF)
-        return [(result[i]<<4)+result[i+1] for i in xrange(0, len(result), 2)]
+        return [(result[i]<<4)+result[i+1] for i in range(0, len(result), 2)]
 
 
 class Array(Sequence):
@@ -554,7 +557,7 @@ class ObjArray(Array):
         bitwidths = self.bitwidths(obj)
         if not all(all(0 <= x[k] < 2**v for k, v in bitwidths) for x in value):
             raise ValidationError
-        if any(set(x.iterkeys()) - set(b[0] for b in bitwidths)
+        if any(set(six.iterkeys(x)) - set(b[0] for b in bitwidths)
                for x in value):
             raise ValidationError
 
@@ -570,7 +573,7 @@ class StructBase(type):
         new_class = super_new(cls, name, bases, {'__module__': module})
 
         new_class.add_to_class('fields', [])
-        for obj_name, obj in attrs.iteritems():
+        for obj_name, obj in six.iteritems(attrs):
             new_class.add_to_class(obj_name, obj)
 
         by_name = dict((field.name, field) for field in new_class.fields)
@@ -597,8 +600,7 @@ class Vars(object):
     pass
 
 
-class Struct(object):
-    __metaclass__ = StructBase
+class Struct(six.with_metaclass(StructBase)):
     _registry = {}
 
     encrypted = True
@@ -673,7 +675,7 @@ class StarsFile(object):
         self.hi, self.lo = self.prime[i], self.prime[j]
 
         seed = ((player%4)+1) * ((uid%4)+1) * ((turn%4)+1) + flag
-        for i in xrange(seed):
+        for i in range(seed):
             self.prng()
 
     def prng(self):
@@ -757,7 +759,7 @@ class FakeStruct(Struct):
         super(FakeStruct, self).__init__(sfile)
 
     def __unicode__(self):
-        return unicode(self.bytes)
+        return six.text_type(self.bytes)
 
 
 class Star(Struct):

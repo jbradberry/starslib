@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from setuptools import find_packages, setup
 
 
@@ -10,7 +11,9 @@ AUTHOR = 'Jeff Bradberry'
 # REQUIRES_PYTHON = '>=3.6.0'
 VERSION = None
 
-REQUIRED = []
+REQUIRED = [
+    'six',
+]
 
 
 setup(
