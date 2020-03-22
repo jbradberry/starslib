@@ -81,7 +81,7 @@ class FieldBase(type):
         return new_cls
 
 
-class Field(six.with_metaclass(FieldBase)):
+class Field(six.with_metaclass(FieldBase, object)):
     """A data member on a Struct.
 
     bitwidth: Specifies the number of bits to be consumed to populate
@@ -585,11 +585,14 @@ class StructBase(type):
         if not parents:
             return super_new(cls, name, bases, attrs)
 
-        module = attrs.pop('__module__')
-        new_class = super_new(cls, name, bases, {'__module__': module})
+        new_attrs = {}
+        new_attrs['__module__'] = attrs.pop('__module__')
+        if '__classcell__' in attrs:
+            new_attrs['__classcell__'] = attrs['__classcell__']
+        new_class = super_new(cls, name, bases, new_attrs)
 
         new_class.add_to_class('fields', [])
-        for obj_name, obj in six.iteritems(attrs):
+        for obj_name, obj in attrs.items():
             new_class.add_to_class(obj_name, obj)
 
         by_name = dict((field.name, field) for field in new_class.fields)
@@ -616,7 +619,8 @@ class Vars(object):
     pass
 
 
-class Struct(six.with_metaclass(StructBase)):
+@six.python_2_unicode_compatible
+class Struct(six.with_metaclass(StructBase, object)):
     _registry = {}
 
     encrypted = True
@@ -626,7 +630,7 @@ class Struct(six.with_metaclass(StructBase)):
         self._vars = Vars()
         self._vars._seq = sfile.counts.get(self.type, 0)
 
-    def __unicode__(self):
+    def __str__(self):
         return "{%s}" % (', '.join("%s: %r" % (f.name,
                                                getattr(self, f.name, None))
                                    for f in self.fields
@@ -767,6 +771,7 @@ def filetypes(*args):
     return ftype_check
 
 
+@six.python_2_unicode_compatible
 class FakeStruct(Struct):
     bytes = None
 
@@ -774,7 +779,7 @@ class FakeStruct(Struct):
         self.type = stype # needed for deparsing FakeStructs
         super(FakeStruct, self).__init__(sfile)
 
-    def __unicode__(self):
+    def __str__(self):
         return six.text_type(self.bytes)
 
 

@@ -15,7 +15,7 @@ for o, a in opts:
 sfiles = []
 for fname in files:
     sfiles.append(base.StarsFile())
-    with open(fname, 'r') as f:
+    with open(fname, 'rb') as f:
         sfiles[-1].bytes = f.read()
 
 scores = {}

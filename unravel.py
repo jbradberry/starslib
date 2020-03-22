@@ -7,7 +7,7 @@ import re
 from starslib import base
 import six
 
-starsRE = re.compile('.*\.([hmxr]{1}[0-9]{1,2}|xy|hst)')
+starsRE = re.compile(r'.*\.([hmxr]{1}[0-9]{1,2}|xy|hst)')
 
 foo = base.StarsFile()
 
@@ -22,7 +22,7 @@ else:
 
 
 for fpath in fpaths:
-    with open(fpath, 'r') as f:
+    with open(fpath, 'rb') as f:
         foo.bytes = f.read()
 
     for S in foo.structs:
