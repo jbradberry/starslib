@@ -8,17 +8,7 @@ from six.moves import map
 from six.moves import range
 from six.moves import zip
 
-
-class StarsError(Exception):
-    pass
-
-
-class ValidationError(StarsError):
-    pass
-
-
-class ParseError(StarsError):
-    pass
+from .exceptions import ParseError, ValidationError
 
 
 class Value(object):
