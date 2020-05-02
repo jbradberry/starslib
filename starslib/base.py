@@ -5,7 +5,7 @@ import struct
 import six
 
 from .exceptions import ValidationError
-from .fields import Int, Bool, Str, CStr, Array, ObjArray
+from .fields import BITWIDTH_CHOICES, Int, Bool, Str, CStr, Array, ObjArray, ftypes, filetypes
 
 
 class StructBase(type):
@@ -189,15 +189,6 @@ class StarsFile(object):
         if stype in Struct._registry:
             return Struct._registry[stype](self)
         return FakeStruct(self, stype)
-
-
-BITWIDTH_CHOICES = ((0, 0), (1, 8), (2, 16), (3, 32))
-ftypes = ('xy', 'x', 'hst', 'm', 'h', 'r')
-
-def filetypes(*args):
-    def ftype_check(s):
-        return s.file.type in args
-    return ftype_check
 
 
 @six.python_2_unicode_compatible

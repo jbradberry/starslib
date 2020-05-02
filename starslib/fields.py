@@ -5,6 +5,15 @@ from .exceptions import ValidationError, ParseError
 import six
 
 
+BITWIDTH_CHOICES = ((0, 0), (1, 8), (2, 16), (3, 32))
+ftypes = ('xy', 'x', 'hst', 'm', 'h', 'r')
+
+def filetypes(*args):
+    def ftype_check(s):
+        return s.file.type in args
+    return ftype_check
+
+
 class Value(object):
     """An accessor that is attached to a Struct class as a proxy for a Field.
 
