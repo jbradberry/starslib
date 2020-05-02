@@ -107,7 +107,7 @@ process = {-1: ixy,
            8: bof}
 
 def parse(data):
-    index, head = 0, True
+    index, head, stars = 0, True, 0
     while index < len(data):
         if head:
             hdr = struct.unpack("H", data[index:index+2])[0]

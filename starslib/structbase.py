@@ -84,3 +84,15 @@ class Struct(six.with_metaclass(StructBase, object)):
 
     def adjust(self):
         return
+
+
+@six.python_2_unicode_compatible
+class FakeStruct(Struct):
+    bytes = None
+
+    def __init__(self, sfile, stype):
+        self.type = stype # needed for deparsing FakeStructs
+        super(FakeStruct, self).__init__(sfile)
+
+    def __str__(self):
+        return six.text_type(self.bytes)
