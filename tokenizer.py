@@ -3,8 +3,6 @@ from __future__ import division
 from __future__ import print_function
 import sys
 
-from six.moves import range
-
 import struct
 
 hi, lo = 0, 0 # really a 64-bit state variable

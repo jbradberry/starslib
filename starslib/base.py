@@ -3,8 +3,6 @@ from __future__ import division
 import struct
 
 import six
-from six.moves import map
-from six.moves import range
 
 from .exceptions import ValidationError
 from .fields import Int, Bool, Str, CStr, Array, ObjArray
