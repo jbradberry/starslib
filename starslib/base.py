@@ -729,7 +729,7 @@ class StarsFile(object):
                 seq.extend((L & 0xff, S.type<<2 | L>>8))
             seq.extend(self.crypt(S.bytes) if S.encrypted else S.bytes)
             S.adjust()
-        return ''.join(map(chr, seq))
+        return b''.join(map(six.int2byte, seq))
 
     @bytes.setter
     def bytes(self, data):
