@@ -1,11 +1,6 @@
 from bisect import bisect
 import struct
 
-import six
-from six.moves import map
-from six.moves import range
-from six.moves import zip
-
 
 class StarsError(Exception):
     pass
@@ -79,7 +74,7 @@ class FieldBase(type):
         return new_cls
 
 
-class Field(six.with_metaclass(FieldBase, object)):
+class Field(metaclass=FieldBase):
     """A data member on a Struct.
 
     bitwidth: Specifies the number of bits to be consumed to populate
@@ -110,7 +105,7 @@ class Field(six.with_metaclass(FieldBase, object)):
         self._bitwidth = bitwidth
         if callable(bitwidth):
             self.bitwidth = self._callable_bitwidth
-        elif isinstance(bitwidth, six.string_types):
+        elif isinstance(bitwidth, (str, bytes)):
             self.references.append([bitwidth, 'bitwidth'])
             self.bitwidth = self._ref_bitwidth
         else:
@@ -332,7 +327,7 @@ class Sequence(Field):
                 self.length = self._remainder_length
         elif callable(length):
             self.length = self._callable_length
-        elif isinstance(length, six.string_types):
+        elif isinstance(length, (str, bytes)):
             self.references.append([length, 'length'])
             self.length = self._ref_length
         else:
@@ -375,7 +370,7 @@ class Sequence(Field):
 
     def _parse(self, obj, seq, vars):
         result = seq[obj.byte:obj.byte + vars.length * vars.bitwidth//8]
-        result = list(zip(*(iter(result),) * (vars.bitwidth//8)))
+        result = list(zip(*(iter(result),) * (vars.bitwidth//8)))  # FIXME: maybe use itertools?
         result = [sum(x<<(8*n) for n, x in enumerate(b)) for b in result]
         obj.byte += vars.length * vars.bitwidth//8
         vars.result = result
@@ -411,7 +406,7 @@ class Sequence(Field):
                     raise ValidationError
         # don't worry about the basestring case; the chained setattr
         # will get it.
-        elif not isinstance(self._length, six.string_types):
+        elif not isinstance(self._length, (str, bytes)):
             if len(value) != length:
                 raise ValidationError
 
@@ -434,7 +429,7 @@ class Str(Sequence):
     def validate(self, obj, value):
         if super(Str, self).validate(obj, value):
             return True
-        if not isinstance(value, six.string_types):
+        if not isinstance(value, (str, bytes)):
             raise ValidationError
 
 
@@ -571,8 +566,7 @@ class ObjArray(Array):
         bitwidths = self.bitwidths(obj)
         if not all(all(0 <= x[k] < 2**v for k, v in bitwidths) for x in value):
             raise ValidationError
-        if any(set(six.iterkeys(x)) - set(b[0] for b in bitwidths)
-               for x in value):
+        if any(set(x) - set(b[0] for b in bitwidths) for x in value):
             raise ValidationError
 
 
@@ -617,8 +611,7 @@ class Vars(object):
     pass
 
 
-@six.python_2_unicode_compatible
-class Struct(six.with_metaclass(StructBase, object)):
+class Struct(metaclass=StructBase):
     _registry = {}
 
     encrypted = True
@@ -727,7 +720,7 @@ class StarsFile(object):
                 seq.extend((L & 0xff, S.type<<2 | L>>8))
             seq.extend(self.crypt(S.bytes) if S.encrypted else S.bytes)
             S.adjust()
-        return b''.join(map(six.int2byte, seq))
+        return bytes(seq)
 
     @bytes.setter
     def bytes(self, data):
@@ -769,7 +762,6 @@ def filetypes(*args):
     return ftype_check
 
 
-@six.python_2_unicode_compatible
 class FakeStruct(Struct):
     bytes = None
 
@@ -778,7 +770,7 @@ class FakeStruct(Struct):
         super(FakeStruct, self).__init__(sfile)
 
     def __str__(self):
-        return six.text_type(self.bytes)
+        return str(self.bytes)
 
 
 class Star(Struct):

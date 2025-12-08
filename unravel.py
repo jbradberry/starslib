@@ -3,7 +3,7 @@ import os
 import re
 
 from starslib import base
-import six
+
 
 starsRE = re.compile(r'.*\.([hmxr]{1}[0-9]{1,2}|xy|hst)')
 
@@ -24,4 +24,4 @@ for fpath in fpaths:
         foo.bytes = f.read()
 
     for S in foo.structs:
-        print(S.type, six.text_type(S))
+        print(S.type, str(S))
