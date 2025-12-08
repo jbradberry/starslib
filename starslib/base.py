@@ -1,5 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
 from bisect import bisect
 import struct
 
