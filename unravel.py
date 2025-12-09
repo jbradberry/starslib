@@ -7,8 +7,6 @@ from starslib import base
 
 starsRE = re.compile(r'.*\.([hmxr]{1}[0-9]{1,2}|xy|hst)')
 
-foo = base.StarsFile()
-
 fpath = sys.argv[1]
 fpaths = []
 if os.path.isfile(fpath):
@@ -20,8 +18,14 @@ else:
 
 
 for fpath in fpaths:
+    foo = base.StarsFile()
+
     with open(fpath, 'rb') as f:
-        foo.bytes = f.read()
+        try:
+            foo.bytes = f.read()
+        except Exception:  # FIXME: do chained exceptions here?
+            print("Problem found with {}".format(fpath))
+            raise
 
     for S in foo.structs:
         print(S.type, str(S))
